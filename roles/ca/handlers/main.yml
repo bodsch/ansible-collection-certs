@@ -1,0 +1,27 @@
+---
+
+- name: daemon-reload
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+    force: true
+  when:
+    - ansible_service_mgr | lower == "systemd"
+
+- name: reload step-ca
+  become: true
+  ansible.builtin.service:
+    name: step-ca
+    state: reloaded
+  when:
+    - not running_in_check_mode
+
+- name: restart step-ca
+  become: true
+  ansible.builtin.service:
+    name: step-ca
+    state: restarted
+  when:
+    - not running_in_check_mode
+
+...

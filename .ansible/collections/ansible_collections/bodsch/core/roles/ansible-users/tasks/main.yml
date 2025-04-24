@@ -1,0 +1,13 @@
+---
+
+- name: prepare
+  ansible.builtin.include_tasks: prepare.yaml
+  tags:
+    - users
+
+- name: add users
+  ansible.builtin.include_tasks: new_users.yaml
+  tags:
+    - users_add
+
+...

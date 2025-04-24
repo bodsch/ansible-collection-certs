@@ -1,0 +1,39 @@
+---
+namespace: bodsch
+name: certs
+
+version: 0.9.0
+
+readme: README.md
+
+authors:
+  - Bodo Schulz <bodo@boone-schulz.de>
+
+description: collection of ansible roles for tls certificate handling
+
+license:
+  - Apache-2.0
+
+license_file: ''
+
+tags: []
+
+dependencies:
+ community.crypto: "*"
+ ansible.utils: "*"
+
+repository: https://github.com/bodsch/ansible-collection-certs
+documentation: https://github.com/bodsch/ansible-collection-certs/README.md
+homepage: https://github.com/bodsch/ansible-collection-certs
+issues: https://github.com/bodsch/ansible-collection-certs/issues
+
+build_ignore:
+  - "galaxy.yml"
+  - "*.pyc"
+  - "*.retry"
+  - ".ansible-lint"
+  - ".editorconfig"
+  - ".flake8"
+  - ".gitignore"
+  - ".yamllint"
+  - ".github"

@@ -1,0 +1,33 @@
+{
+ "collection_info": {
+  "namespace": "bodsch",
+  "name": "core",
+  "version": "2.6.0",
+  "authors": [
+   "Bodo Schulz <bodo@boone-schulz.de>"
+  ],
+  "readme": "README.md",
+  "tags": [],
+  "description": "collection of core modules for my ansible roles",
+  "license": [
+   "Apache-2.0"
+  ],
+  "license_file": null,
+  "dependencies": {
+   "community.crypto": "*",
+   "ansible.utils": "*"
+  },
+  "repository": "https://github.com/bodsch/ansible-collection-core",
+  "documentation": "https://github.com/bodsch/ansible-collection-core/README.md",
+  "homepage": "https://github.com/bodsch/ansible-collection-core",
+  "issues": "https://github.com/bodsch/ansible-collection-core/issues"
+ },
+ "file_manifest_file": {
+  "name": "FILES.json",
+  "ftype": "file",
+  "chksum_type": "sha256",
+  "chksum_sha256": "ad21aec77984fa419866d045dd4665060c949d8e463f8abb0cae74845420fe22",
+  "format": 1
+ },
+ "format": 1
+}

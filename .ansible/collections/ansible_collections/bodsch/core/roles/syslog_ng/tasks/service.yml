@@ -1,0 +1,26 @@
+---
+
+- name: flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: systemd
+  when:
+    - ansible_service_mgr == "systemd"
+    - not ansible_check_mode
+  block:
+    - name: enable and start {{ syslog_unit_file }}.service
+      ansible.builtin.service:
+        name: '{{ syslog_unit_file }}'
+        enabled: true
+        state: started
+      when:
+        - syslog_unit_file is defined
+
+- name: enable and start syslog-ng (no systemd)
+  when:
+    - ansible_service_mgr != "systemd"
+    - not ansible_check_mode
+  ansible.builtin.service:
+    name: syslog-ng
+    enabled: true
+    state: started

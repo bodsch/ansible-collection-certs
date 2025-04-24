@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+
+#  # It is possible to specify requirements as plain names.
+#  pytest
+#  pytest-cov
+#  beautifulsoup4
+#
+#  # The syntax supported here is the same as that of requirement specifiers.
+#  docopt == 0.6.1
+#  requests [security] >= 2.8.1, == 2.8.* ; python_version < "2.7"
+
+# {{ python_pip_modules | pip_requirements() }}"
+
+{% for k in python_pip_modules | pip_requirements() %}
+{{ k }}
+{% endfor %}

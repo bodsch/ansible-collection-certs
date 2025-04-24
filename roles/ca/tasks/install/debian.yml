@@ -1,0 +1,67 @@
+---
+
+- name: not based on arch linux
+  block:
+    - name: detect installed smallstep signing key
+      ansible.builtin.stat:
+        path: /etc/apt/trusted.gpg.d/smallstep.asc
+      no_log: true
+      register: ca_signing_key
+
+    - name: detect installed smallstep repository
+      ansible.builtin.stat:
+        path: /etc/apt/sources.list.d/smallstep-latest.list
+      no_log: true
+      register: ca_repository_sources
+
+    - name: download signing key
+      become: true
+      ansible.builtin.get_url:
+        url: https://packages.smallstep.com/keys/apt/repo-signing-key.gpg
+        dest: /etc/apt/trusted.gpg.d/smallstep.asc
+        mode: 0755
+      register: _download_signing_key
+      until: _download_signing_key is succeeded
+      retries: 5
+      delay: 2
+      when:
+        - not ca_signing_key.stat.exists | default('false') | bool
+
+    - name: create policy-rc.d
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/smallstep-latest.list
+        content: |
+          deb [signed-by=/etc/apt/trusted.gpg.d/smallstep.asc] https://packages.smallstep.com/stable/debian debs main
+        mode: 0755
+      when:
+        - not ca_repository_sources.stat.exists | default('false') | bool
+
+- name: update package cache
+  become: true
+  ansible.builtin.package:
+    update_cache: true
+
+- name: install dependencies
+  ansible.builtin.package:
+    name: "{{ ca_packages }}"
+    state: present
+
+    # - name: create policy-rc.d
+    #   ansible.builtin.copy:
+    #     dest: /usr/sbin/policy-rc.d
+    #     content: |
+    #       #!/bin/sh
+    #       exit 101
+    #     mode: 0755
+    #
+    # - name: remove policy-rc.d
+    #   ansible.builtin.file:
+    #     path: /usr/sbin/policy-rc.d
+    #     state: absent
+
+# # apt-get update && apt-get install -y --no-install-recommends curl vim gpg ca-certificates
+# curl -fsSL https://packages.smallstep.com/keys/apt/repo-signing-key.gpg -o /etc/apt/trusted.gpg.d/smallstep.asc && \
+#     echo 'deb [signed-by=/etc/apt/trusted.gpg.d/smallstep.asc] https://packages.smallstep.com/stable/debian debs main' \
+#     | tee /etc/apt/sources.list.d/smallstep.list
+# apt-get update && apt-get -y install step-cli step-ca
+...

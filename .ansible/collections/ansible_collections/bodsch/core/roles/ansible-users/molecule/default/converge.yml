@@ -1,0 +1,11 @@
+---
+
+- name: create users
+  hosts: instance
+  any_errors_fatal: false
+  become: false
+
+  roles:
+    - role: ansible-users
+
+...

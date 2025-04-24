@@ -1,0 +1,7 @@
+#jinja2: trim_blocks: True, lstrip_blocks: True
+# {{ ansible_managed }}
+
+OPTIONS="
+  {{ ca_system.home }}/.step/config/ca.json \
+  --password-file={{ ca_system.home }}/.step.password
+"

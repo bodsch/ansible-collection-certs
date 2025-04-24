@@ -1,0 +1,28 @@
+---
+
+galaxy_info:
+  role_name: ca
+
+  author: Bodo Schulz
+  description: Creates your own certificate authority for a test environment.
+
+  license: "Apache"
+  min_ansible_version: "2.10"
+
+  platforms:
+    - name: ArchLinux
+    - name: Debian
+      versions:
+        # 10
+        - buster
+        - bullseye
+
+  galaxy_tags:
+    - certificate
+    - ca
+    - certificate-authority
+    - tls
+
+dependencies: []
+
+...

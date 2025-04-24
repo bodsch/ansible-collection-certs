@@ -1,0 +1,54 @@
+---
+
+- name: create step directory
+  ansible.builtin.file:
+    path: "{{ ca_system.home }}/.step"
+    state: directory
+    owner: "{{ ca_system.owner }}"
+    group: "{{ ca_system.group }}"
+    mode: 0750
+
+- name: create init password
+  no_log: true
+  ansible.builtin.copy:
+    dest: "{{ ca_system.home }}/.step.password"
+    content: "{{ ca_init_password }}"
+    owner: "{{ ca_system.owner }}"
+    group: "{{ ca_system.group }}"
+    mode: 0640
+
+- name: stop servcie
+  become: true
+  ansible.builtin.service:
+    name: step-ca
+    state: stopped
+  when:
+    - not running_in_check_mode
+    - ca_force
+
+- name: init step-ca
+  remote_user: "{{ ca_system.owner }}"
+  no_log: true
+  bodsch.core.step_ca:
+    state: init
+    name: "Matrix CA"
+    force: "{{ ca_force }}"
+    home: "{{ ca_system.home }}"
+    password_file: ".step.password"
+    dns:
+      - localhost
+      - ca.matrix.lan
+  notify:
+    - restart step-ca
+
+- name: add ACME provisioner
+  remote_user: "{{ ca_system.owner }}"
+  bodsch.core.step_ca:
+    state: add-acme-provisioner
+    home: "{{ ca_system.home }}"
+  when:
+    - ca_support_acme
+  notify:
+    - restart step-ca
+
+...

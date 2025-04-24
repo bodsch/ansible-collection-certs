@@ -1,0 +1,7 @@
+---
+
+ca_dependencies:
+  - gpg
+  - ca-certificates
+
+...

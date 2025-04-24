@@ -1,0 +1,37 @@
+---
+
+- name: python support
+  when:
+    - python_pip_modules is defined
+    - python_pip_modules | length > 0
+  block:
+    - name: install pip modules - 1st
+      ansible.builtin.pip:
+        requirements: "{{ python_pip_requirements }}"
+        state: present
+        executable: pip3
+      register: pip_install
+      ignore_errors: true
+      no_log: true
+
+    - name: use build tools
+      when:
+        - pip_install.failed
+      block:
+        - name: install build essentials
+          ansible.builtin.package:
+            name: "{{ python_pip_build_packages }}"
+            state: present
+
+        - name: install pip modules - 2nd
+          ansible.builtin.pip:
+            requirements: "{{ python_pip_requirements }}"
+            state: present
+            executable: pip3
+
+        - name: uninstall build essentials
+          ansible.builtin.package:
+            name: "{{ python_pip_build_packages }}"
+            state: absent
+
+...
