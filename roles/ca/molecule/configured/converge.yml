@@ -7,5 +7,5 @@
   any_errors_fatal: true
 
   roles:
-    - role: bodsch.core.ca
+    - role: bodsch.certs.ca
 

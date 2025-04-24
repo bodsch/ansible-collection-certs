@@ -30,6 +30,33 @@
   ansible.builtin.set_fact:
     running_in_check_mode: '{{ _check_mode.check_mode }}'
 
+- name: d
+  debug:
+    msg:
+      - "{{ ca_init_password }}"
+      - "{{ ca_init_password | default('') | length == 0 }}"
+
+- name: validate init password
+  when:
+    - ca_init_password | default('') | length == 0
+  block:
+    - name: warn if a init password is not specified
+      ansible.builtin.fail:
+        msg: |
+          - WARNING -
+          The CA init password was left empty.
+          Please set a custom password with role variable 'ca_init_password'
+          to secure your CA!
+      ignore_errors: true
+
+    - name: wait 10 seconds to realise the message
+      delegate_to: localhost
+      ansible.builtin.wait_for:
+        timeout: 10
+
+    - name: full stop at errors
+      ansible.builtin.meta: end_play
+
 - name: install dependencies
   ansible.builtin.package:
     name: "{{ ca_dependencies }}"

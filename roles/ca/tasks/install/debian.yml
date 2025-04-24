@@ -27,7 +27,7 @@
       when:
         - not ca_signing_key.stat.exists | default('false') | bool
 
-    - name: create policy-rc.d
+    - name: create debian sources
       ansible.builtin.copy:
         dest: /etc/apt/sources.list.d/smallstep-latest.list
         content: |
@@ -46,22 +46,4 @@
     name: "{{ ca_packages }}"
     state: present
 
-    # - name: create policy-rc.d
-    #   ansible.builtin.copy:
-    #     dest: /usr/sbin/policy-rc.d
-    #     content: |
-    #       #!/bin/sh
-    #       exit 101
-    #     mode: 0755
-    #
-    # - name: remove policy-rc.d
-    #   ansible.builtin.file:
-    #     path: /usr/sbin/policy-rc.d
-    #     state: absent
-
-# # apt-get update && apt-get install -y --no-install-recommends curl vim gpg ca-certificates
-# curl -fsSL https://packages.smallstep.com/keys/apt/repo-signing-key.gpg -o /etc/apt/trusted.gpg.d/smallstep.asc && \
-#     echo 'deb [signed-by=/etc/apt/trusted.gpg.d/smallstep.asc] https://packages.smallstep.com/stable/debian debs main' \
-#     | tee /etc/apt/sources.list.d/smallstep.list
-# apt-get update && apt-get -y install step-cli step-ca
 ...

@@ -8,6 +8,8 @@ import os
 import shutil
 import json
 
+from ansible_collections.bodsch.core.plugins.module_utils.checksum import Checksum
+
 from ansible.module_utils.basic import AnsibleModule
 
 # ---------------------------------------------------------------------------------------
@@ -37,6 +39,7 @@ RETURN = r"""
 
 # ---------------------------------------------------------------------------------------
 
+
 class StepCA():
     """
     """
@@ -49,12 +52,15 @@ class StepCA():
 
         self.state = module.params.get("state")
         self.force = module.params.get("force", False)
-        self.step_home = module.params.get("home", False)
-        self.step_name = module.params.get("name", False)
-        self.step_password_file = module.params.get("password_file", False)
-        self.step_dns = module.params.get("dns", False)
+        self.step_home = module.params.get("home", None)
+        self.step_name = module.params.get("name", None)
+        self.step_password_file = module.params.get("password_file", None)
+        self.step_dns = module.params.get("dns", [])
+        self.step_provisioners = module.params.get("with_provisioners", [])
 
         self._step = module.get_bin_path('step-cli', True)
+        self.step_root_cert = os.path.join(self.step_home, ".step", "certs", "root_ca.crt")
+        self.step_config_file = os.path.join(self.step_home, ".step", "config", "ca.json")
 
     def run(self):
         """
@@ -64,14 +70,19 @@ class StepCA():
             changed=False,
         )
 
+        self.checksum = Checksum(self.module)
+
         if self.force:
             self.cleanFiles()
 
         if self.state == "init":
             result = self.initCA()
 
-        if self.state == "add-acme-provisioner":
-            result = self.addProvisioner()
+            if not result.get("failed"):
+                if len(self.step_provisioners) > 0:
+                    self.addProvisioner()
+
+                result = self.updateAuthorityClaims(result)
 
         return result
 
@@ -92,16 +103,11 @@ class StepCA():
             --password-file ~/ca.password   \
             --deployment-type "standalone"
         """
-        result = dict(
-            failed=False,
-            changed=False,
-        )
+        result = dict()
 
         pwd_file = os.path.join(self.step_home, self.step_password_file)
-        root_cert = os.path.join(self.step_home, ".step", "certs", "root_ca.crt")
-        config_file = os.path.join(self.step_home, ".step", "config", "ca.json")
 
-        if os.path.exists(root_cert) and os.path.exists(config_file):
+        if os.path.exists(self.step_root_cert) and os.path.exists(self.step_config_file):
             return dict(
                 failed=False,
                 changed=False,
@@ -130,14 +136,84 @@ class StepCA():
 
         self.module.log(msg=f"  args : '{args}'")
 
-        rc, out = self._exec(args)
+        rc, out, err = self._exec(args)
 
         result['result'] = f"{out.rstrip()}"
 
         if rc == 0:
             result['changed'] = True
+            result['stdout'] = out
+            result['cmd'] = args
         else:
             result['failed'] = True
+            result['stderr'] = err
+            result['cmd'] = args
+
+        return result
+
+    def updateAuthorityClaims(self, result):
+        """
+        """
+        self.module.log(msg=f"updateAuthorityClaims({result})")
+        self.module.log(msg=f"  - {self.step_config_file}")
+
+        current_claims = dict()
+        needed_claims = dict()
+
+        hashed_current = None
+        hashed_needed = None
+
+        if os.path.exists(self.step_config_file):
+
+            needed_claims = dict(
+                claims=dict(
+                    # TLS Cert
+                    defaultTLSCertDuration="48h",
+                    minTLSCertDuration="5m",
+                    maxTLSCertDuration="168h",                   # 7 Tage
+                    # HOST SSH Cert
+                    defaultHostSSHCertDuration="168h",
+                    minHostSSHCertDuration="5m",
+                    maxHostSSHCertDuration="1680h",
+                    # USER SSH Cert
+                    defaultUserSSHCertDuration="12h",
+                    minUserSSHCertDuration="5m",
+                    maxUserSSHCertDuration="72h",
+                    #
+                    disableRenewal=False,
+                    allowRenewalAfterExpiry=False,
+                )
+            )
+
+            with open(self.step_config_file, "r") as f:
+                ca_data = json.load(f)
+
+                current_claims = ca_data.get("authority", {}).get("claims", {})
+
+        if isinstance(current_claims, dict):
+            hashed_current = self.checksum.checksum(current_claims)
+
+        if isinstance(needed_claims, dict):
+            hashed_needed = self.checksum.checksum(needed_claims.get("claims"))
+
+        if isinstance(current_claims, dict) and isinstance(needed_claims, dict):
+            if hashed_current or hashed_needed:
+
+                # self.module.log(msg=f"  current_claims : '{current_claims}'")
+                # self.module.log(msg=f"  needed_claims  : '{needed_claims}'")
+                #
+                # self.module.log(msg=f"  hashed_current : '{hashed_current}'")
+                # self.module.log(msg=f"  hashed_needed  : '{hashed_needed}'")
+
+                if hashed_current == hashed_needed:
+                    return result
+
+                ca_data["authority"].update(needed_claims)
+
+                with open(self.step_config_file, "w", encoding='utf-8') as f:
+                    json.dump(ca_data, f, ensure_ascii=False, indent=2)
+
+                result["changed"] = True
 
         return result
 
@@ -152,18 +228,14 @@ class StepCA():
             changed=False,
         )
 
-        root_cert = os.path.join(self.step_home, ".step", "certs", "root_ca.crt")
-        config_file = os.path.join(self.step_home, ".step", "config", "ca.json")
-
         args = []
 
-        if os.path.exists(root_cert) and os.path.exists(config_file):
+        if os.path.exists(self.step_root_cert) and os.path.exists(self.step_config_file):
 
-            with open(config_file, "r") as f:
+            with open(self.step_config_file, "r") as f:
                 ca_data = json.load(f)
 
                 provisioners = ca_data.get("authority", {}).get("provisioners", [])
-                self.module.log(msg=f"  provisioners : '{provisioners}'")
                 types = [x.get("type").lower() for x in provisioners]
 
                 if "acme" in types:
@@ -181,11 +253,11 @@ class StepCA():
             args.append("--type")
             args.append("ACME")
             args.append("--root")
-            args.append(root_cert)
+            args.append(self.step_root_cert)
 
         self.module.log(msg=f"  args : '{args}'")
 
-        rc, out = self._exec(args)
+        rc, out, _ = self._exec(args)
 
         result['result'] = f"{out.rstrip()}"
 
@@ -206,8 +278,10 @@ class StepCA():
         if int(rc) != 0:
             self.module.log(msg=f"  out: '{out}'")
             self.module.log(msg=f"  err: '{err}'")
+            for line in err.splitlines():
+                self.module.log(msg=f"   {line}")
 
-        return rc, out
+        return (rc, out, err)
 
 
 def main():
@@ -242,7 +316,10 @@ def main():
             required=False,
             type="list"
         ),
-
+        with_provisioners=dict(
+            required=False,
+            type="list"
+        )
     )
 
     module = AnsibleModule(
@@ -443,7 +520,6 @@ OPTIONS
 """
 
 
-
 """
 step ca init \
   --name "My Local CA" \
@@ -479,7 +555,9 @@ FEEDBACK 😍 🍻
 """
 
 """
-step ca certificate www.matrix.lan www.crt www.key --provisioner "admin" --provisioner-password-file /opt/step/.step/password -ca-url https://localhost:9000 --root /opt/step/.step/certs/root_ca.crt
+step ca certificate www.matrix.lan www.crt www.key --provisioner "admin"
+--provisioner-password-file /opt/step/.step/password -ca-url https://localhost:9000
+--root /opt/step/.step/certs/root_ca.crt
 """
 
 """

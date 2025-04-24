@@ -19,6 +19,8 @@
 
 - name: stop servcie
   become: true
+  no_log: true
+  ignore_errors: true
   ansible.builtin.service:
     name: step-ca
     state: stopped
@@ -28,8 +30,8 @@
 
 - name: init step-ca
   remote_user: "{{ ca_system.owner }}"
-  no_log: true
-  bodsch.core.step_ca:
+  # no_log: true
+  bodsch.certs.step_ca:
     state: init
     name: "Matrix CA"
     force: "{{ ca_force }}"
@@ -38,17 +40,19 @@
     dns:
       - localhost
       - ca.matrix.lan
+    with_provisioners:
+      - acme
   notify:
     - restart step-ca
 
-- name: add ACME provisioner
-  remote_user: "{{ ca_system.owner }}"
-  bodsch.core.step_ca:
-    state: add-acme-provisioner
-    home: "{{ ca_system.home }}"
-  when:
-    - ca_support_acme
-  notify:
-    - restart step-ca
+# - name: add ACME provisioner
+#   remote_user: "{{ ca_system.owner }}"
+#   bodsch.certs.step_ca:
+#     state: add-acme-provisioner
+#     home: "{{ ca_system.home }}"
+#   when:
+#     - ca_support_acme
+#   notify:
+#     - restart step-ca
 
 ...
