@@ -1,5 +1,5 @@
 
-# Ansible Role:  `bodsch.core.snakeoil`
+# Ansible Role:  `bodsch.certs.snakeoil`
 
 build a simple snakeoil certificate for a test environment.
 

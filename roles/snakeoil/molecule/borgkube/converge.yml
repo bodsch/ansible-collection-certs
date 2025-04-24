@@ -6,4 +6,4 @@
   become: false
 
   roles:
-    - role: bodsch.core.snakeoil
+    - role: bodsch.certs.snakeoil

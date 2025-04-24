@@ -11,7 +11,7 @@
     - name: get expire date from certificate
       delegate_to: localhost
       become: false
-      bodsch.core.snakeoil_date:
+      bodsch.certs.snakeoil_date:
         snakeoil_directory: "{{ snakeoil_local_tmp_directory }}"
         snakeoil_domain: "{{ snakeoil_domain }}"
         pattern: "%Y-%m-%d"
@@ -22,7 +22,7 @@
     - name: get size of existing dh.pem
       delegate_to: localhost
       become: false
-      bodsch.core.snakeoil_openssl:
+      bodsch.certs.snakeoil_openssl:
         state: dhparam_size
         directory: "{{ snakeoil_local_tmp_directory }}"
         domain: "{{ snakeoil_domain }}"
@@ -76,14 +76,14 @@
         mode: "0660"
 
     - name: create {{ snakeoil_domain }}.csr
-      bodsch.core.snakeoil_openssl:
+      bodsch.certs.snakeoil_openssl:
         state: csr
         directory: "{{ snakeoil_local_tmp_directory }}"
         domain: "{{ snakeoil_domain }}"
         openssl_config: "{{ snakeoil_domain }}.conf"
 
     - name: create {{ snakeoil_domain }}.crt
-      bodsch.core.snakeoil_openssl:
+      bodsch.certs.snakeoil_openssl:
         state: crt
         directory: "{{ snakeoil_local_tmp_directory }}"
         domain: "{{ snakeoil_domain }}"
@@ -91,7 +91,7 @@
         cert_life_time: "{{ snakeoil_life_time | int }}"
 
     - name: create dh.pem
-      bodsch.core.snakeoil_openssl:
+      bodsch.certs.snakeoil_openssl:
         state: dhparam
         directory: "{{ snakeoil_local_tmp_directory }}"
         domain: "{{ snakeoil_domain }}"
