@@ -1,0 +1,8 @@
+#jinja2: trim_blocks: True, lstrip_blocks: True
+# {{ ansible_managed }}
+
+[Service]
+ExecStart        =
+ExecStart        = /bin/multidomain-certbot-renew.py
+
+SyslogIdentifier = multidomain-certbot-renew

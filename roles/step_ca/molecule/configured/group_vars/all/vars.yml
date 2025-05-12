@@ -1,0 +1,30 @@
+---
+
+step_ca_init_password: 9veIqFdRt5SKJAmZXnvU1yqG34NxAXQA4d4lDtkl1vzAYw7yiQfyVVHKEdM7CGGa
+
+step_ca_force: false
+
+step_ca_authority:
+  name: "matrix CA"
+  dns:
+    - localhost
+    - matrix.lan
+    - matrix.local
+  provisioners: []
+  config:
+    tls_duration:
+      default: 48h
+      min: 5m
+      max: 168h
+    ssh_durations:
+      host:
+        default: 48h
+        min: 5m
+        max: 168h
+      user:
+        default: 48h
+        min: 5m
+        max: 168h
+    disable_renewal: false
+    allow_renewal_after_expiry: false
+...

@@ -1,0 +1,217 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+
+# (c) 2021-2024, Bodo Schulz <bodo@boone-schulz.de>
+# GNU General Public License version 3 (see LICENSE or https://opensource.org/license/gpl-3-0)
+# SPDX-License-Identifier: GPL-3.0
+
+from __future__ import absolute_import, division, print_function
+import os
+import shutil
+
+from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.bodsch.core.plugins.module_utils.directory import create_directory
+from ansible_collections.bodsch.core.plugins.module_utils.checksum import Checksum
+from ansible_collections.bodsch.core.plugins.module_utils.module_results import results
+
+# ---------------------------------------------------------------------------------------
+
+DOCUMENTATION = """
+---
+module: domain_config_files
+author: "Bodo 'bodsch' Schulz (@bodsch) <bodo@boone-schulz.de>"
+version_added: 1.0.0
+
+short_description: creates a certificate with letsentcrypt certbot
+
+description:
+    - creates a certificate with letsentcrypt certbot
+
+options:
+  certificates:
+    description:
+      -
+    required: true
+    type: list
+
+  path:
+    description:
+      -
+    required: true
+    type: str
+"""
+
+EXAMPLES = """
+- name: create multi domain config files
+  domain_config_files:
+    certificates:
+      - domain: foo.bar
+        subdomains: www.foo.bar
+    path: /etc/certbot/domains
+    mode: "0640"
+  when:
+    - multi_certbot_tls_certificates | default([]) | count > 0
+"""
+
+RETURN = """
+"""
+
+# ---------------------------------------------------------------------------------------
+
+
+class DomainConfigs(object):
+    """
+    """
+
+    def __init__(self, module):
+        """
+        """
+        self.module = module
+
+        self.certificates = module.params.get("certificates")
+        self.base_directory = module.params.get("path")
+        self.mode = module.params.get("mode")
+
+        pid = os.getpid()
+        self.tmp_directory = os.path.join("/run/.ansible", f"certbot.{str(pid)}")
+
+    def run(self):
+        """
+        """
+        result_state = []
+
+        create_directory(directory=self.tmp_directory, mode="0750")
+        checksum = Checksum(self.module)
+
+        for cert in self.certificates:
+            res = {}
+            domains = []
+            domain = cert.get("domain", None)
+            subdomain_list = cert.get("subdomains", [])
+
+            if subdomain_list is None:
+                domains.append(domain)
+            elif isinstance(subdomain_list, list) and len(subdomain_list) > 0:
+                domains = subdomain_list
+                domains.insert(0, domain)
+            elif isinstance(subdomain_list, str):
+                domains.append(domain)
+                domains.append(subdomain_list)
+            else:
+                domains.append(domain)
+
+            file_name = os.path.join(
+                self.base_directory,
+                f"{domain}.yml"
+            )
+            tmp_file = os.path.join(self.tmp_directory, f"{domain}.yml")
+
+            self.__write_file(domains, tmp_file)
+
+            new_checksum = checksum.checksum_from_file(tmp_file)
+            old_checksum = checksum.checksum_from_file(file_name)
+            changed = not (new_checksum == old_checksum)
+            # new_file = False
+
+            # self.module.log(f" tmp_file      : {tmp_file}")
+            # self.module.log(f" config_file   : {file_name}")
+            # self.module.log(f" changed       : {changed}")
+            # self.module.log(f" new_checksum  : {new_checksum}")
+            # self.module.log(f" old_checksum  : {old_checksum}")
+
+            if changed:
+                # shutil.copyfile(tmp_file, file_name)
+
+                if os.path.exists(f"{tmp_file}"):
+                    shutil.copyfile(f"{tmp_file}", f"{file_name}")
+
+                res[domain] = dict(
+                    changed=True,
+                    msg="The configuration was successfully written."
+                )
+            elif not changed and old_checksum is None:
+                # shutil.copyfile(tmp_file, file_name)
+
+                if os.path.exists(f"{tmp_file}"):
+                    shutil.copyfile(f"{tmp_file}", f"{file_name}")
+
+                res[domain] = dict(
+                    changed=True,
+                    msg="The configuration was successfully created."
+                )
+
+            else:
+                res[domain] = dict(
+                    changed=False,
+                    msg="The configuration has not been changed."
+                )
+
+            result_state.append(res)
+
+        _state, _changed, _failed, state, changed, failed = results(self.module, result_state)
+
+        result = dict(
+            changed=_changed,
+            failed=failed,
+            state=result_state
+        )
+
+        shutil.rmtree(self.tmp_directory)
+
+        return result
+
+    def __yaml_template(self, domain_list):
+        """
+          generate data from dictionary
+        """
+        tpl = """---
+# generated by ansible
+
+domains:
+{%- for i in item %}
+  - {{ i }}
+{%- endfor %}
+
+"""
+        from jinja2 import Template
+
+        tm = Template(tpl)
+        d = tm.render(item=domain_list)
+
+        return d
+
+    def __write_file(self, domains, data_file):
+        """
+        """
+        data = self.__yaml_template(domains)
+        with open(f"{data_file}", "w") as f:
+            f.write(data)
+
+
+def main():
+
+    specs = dict(
+        certificates=dict(
+            required=True,
+            type="list"
+        ),
+        path=dict(
+            required=True,
+            type="str"
+        ),
+    )
+
+    module = AnsibleModule(
+        argument_spec=specs,
+        supports_check_mode=True,
+    )
+
+    p = DomainConfigs(module)
+    result = p.run()
+
+    # module.log(msg=f"= result: {result}")
+    module.exit_json(**result)
+
+
+if __name__ == '__main__':
+    main()

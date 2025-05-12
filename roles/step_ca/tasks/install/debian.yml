@@ -1,0 +1,49 @@
+---
+
+- name: not based on arch linux
+  block:
+    - name: detect installed smallstep signing key
+      ansible.builtin.stat:
+        path: /etc/apt/trusted.gpg.d/smallstep.asc
+      no_log: true
+      register: step_ca_signing_key
+
+    - name: detect installed smallstep repository
+      ansible.builtin.stat:
+        path: /etc/apt/sources.list.d/smallstep-latest.list
+      no_log: true
+      register: step_ca_repository_sources
+
+    - name: download signing key
+      become: true
+      ansible.builtin.get_url:
+        url: https://packages.smallstep.com/keys/apt/repo-signing-key.gpg
+        dest: /etc/apt/trusted.gpg.d/smallstep.asc
+        mode: 0755
+      register: _download_signing_key
+      until: _download_signing_key is succeeded
+      retries: 5
+      delay: 2
+      when:
+        - not step_ca_signing_key.stat.exists | default('false') | bool
+
+    - name: create debian sources
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/smallstep-latest.list
+        content: |
+          deb [signed-by=/etc/apt/trusted.gpg.d/smallstep.asc] https://packages.smallstep.com/stable/debian debs main
+        mode: 0755
+      when:
+        - not step_ca_repository_sources.stat.exists | default('false') | bool
+
+- name: update package cache
+  become: true
+  ansible.builtin.package:
+    update_cache: true
+
+- name: install dependencies
+  ansible.builtin.package:
+    name: "{{ step_ca_packages }}"
+    state: present
+
+...

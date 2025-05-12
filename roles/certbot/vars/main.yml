@@ -1,0 +1,21 @@
+---
+
+multi_certbot_requirements:
+  # - bc
+  - python3-ruamel.yaml
+  - python3-dnspython
+  - python3-dbus
+
+multi_certbot_system:
+  user: www-data
+  group: www-data
+
+multi_certbot_defaults_systemd:
+  use_timer: true
+  service_name:
+    timer: certbot.timer
+    service: certbot.service
+
+systemd_lib_directory: /lib/systemd/system
+
+...

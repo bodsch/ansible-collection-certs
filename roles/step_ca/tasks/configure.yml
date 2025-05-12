@@ -1,0 +1,49 @@
+---
+
+- name: create step directory
+  ansible.builtin.file:
+    path: "{{ step_ca_system.home }}/.step"
+    state: directory
+    owner: "{{ step_ca_system.owner }}"
+    group: "{{ step_ca_system.group }}"
+    mode: 0750
+
+- name: create init password
+  no_log: true
+  ansible.builtin.copy:
+    dest: "{{ step_ca_system.home }}/.step.password"
+    content: "{{ step_ca_init_password }}"
+    owner: "{{ step_ca_system.owner }}"
+    group: "{{ step_ca_system.group }}"
+    mode: 0640
+
+- name: stop servcie
+  become: true
+  no_log: true
+  ignore_errors: true
+  ansible.builtin.service:
+    name: step-ca
+    state: stopped
+  when:
+    - not running_in_check_mode
+    - step_ca_force
+
+- name: init step-ca
+  remote_user: "{{ step_ca_system.owner }}"
+  # no_log: true
+  bodsch.certs.step_ca:
+    state: init
+    name: "{{ step_ca_authority.name }}"
+    force: "{{ step_ca_force }}"
+    home: "{{ step_ca_system.home }}"
+    password_file: ".step.password"
+    dns: "{{ step_ca_authority.dns | default(omit) }}"
+    with_provisioners: "{{ step_ca_authority.provisioners | default(omit) }}"
+    config: "{{ step_ca_authority.config | default(omit) }}"
+  notify:
+    - restart step-ca
+  when:
+    - step_ca_authority.name | default('') | string | length > 0
+    - step_ca_authority.dns | default([]) | count > 0
+
+...

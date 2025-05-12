@@ -1,0 +1,22 @@
+{{ ansible_managed | comment }}
+
+[Unit]
+Description       = step-ca is an online Certificate Authority (CA) for secure, automated X.509 and SSH certificate management.
+Documentation     = https://smallstep.com/docs/step-ca/
+After             = syslog.target network.target
+
+[Service]
+Type              = simple
+EnvironmentFile   = {{ step_ca_defaults_directory }}/step-ca
+
+User              = {{ step_ca_system.owner }}
+Group             = {{ step_ca_system.group }}
+
+ExecStart         = /usr/bin/step-ca $OPTIONS
+
+Restart           = on-failure
+RestartSec        = 10s
+TimeoutStopSec    = 20s
+
+[Install]
+WantedBy          = multi-user.target

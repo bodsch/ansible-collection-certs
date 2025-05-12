@@ -1,0 +1,11 @@
+---
+
+- name: start and enable the step-ca service
+  service:
+    name: step-ca
+    state: "{{ step_ca_service.state }}"
+    enabled: "{{ step_ca_service.enabled }}"
+  tags:
+    - service
+
+...

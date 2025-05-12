@@ -1,0 +1,21 @@
+---
+
+nginx_vhosts:
+  default:
+    filename: 00-status.conf
+    listen: 8088
+
+    domains: _
+
+    locations:
+      "/nginx_status":
+        options: |
+          stub_status on;
+          access_log off;
+          allow 127.0.0.1;
+          deny all;
+
+  test.dev:
+    root: "/var/www/test"
+
+...

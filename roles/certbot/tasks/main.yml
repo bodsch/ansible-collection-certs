@@ -1,0 +1,15 @@
+---
+
+- name: preparement
+  ansible.builtin.include_tasks: prepare.yml
+
+- name: install
+  ansible.builtin.include_tasks: install.yml
+
+- name: configure
+  ansible.builtin.include_tasks: configure.yml
+
+- name: certbot-renew script
+  ansible.builtin.include_tasks: cert_renew.yml
+
+...

@@ -1,0 +1,29 @@
+---
+
+galaxy_info:
+  role_name: multidomain_certbot
+  namespace: bodsch
+
+  author: Bodo Schulz
+  description: installs, configures certbot and create multiple certificates
+
+  license: "GPL-3"
+  min_ansible_version: 2.10
+
+  platforms:
+    - name: ArchLinux
+    - name: Debian
+      versions:
+        # 10
+        - buster
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - certbot
+    - security
+    - certificates
+
+dependencies: []
+
+...

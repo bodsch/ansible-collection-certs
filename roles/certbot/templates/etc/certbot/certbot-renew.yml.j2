@@ -1,0 +1,40 @@
+#jinja2: trim_blocks: True, lstrip_blocks: True
+---
+# {{ ansible_managed }}
+
+certbot:
+  domains:
+{% for domain in multi_certbot_tls_certificates %}
+    - {{ domain.get('domain') }}
+{% endfor %}
+  conf_dir: {{ multi_certbot_config.conf_directory }}
+  acme_dir: {{ multi_certbot_config.www_directory | default('/var/www/certbot') }}
+  rsa_key_size: {{ multi_certbot_config.rsa_key_size | default('4096') }}
+  email: {{ multi_certbot_config.email }}
+  expire_days_limit: {{ multi_certbot_config.expire_days_limit | default('20') }}
+
+{% if multi_certbot_notification is defined and
+      multi_certbot_notification.enabled | default('false') | bool %}
+notification:
+  enabled: true
+  smtp:
+    server_name: {{ multi_certbot_notification.smtp.server_name | default('') }}
+    port: {{ multi_certbot_notification.smtp.port | default('') }}
+    tls: false
+  {% if multi_certbot_notification.smtp.auth | default({}) is defined and
+        multi_certbot_notification.smtp.auth.username | default('') | string | length > 0 and
+        multi_certbot_notification.smtp.auth.password | default('') | string | length > 0 %}
+    auth:
+      username: {{ multi_certbot_notification.smtp.auth.username | default('') }}
+      password: {{ multi_certbot_notification.smtp.auth.password | default('') }}
+  {% endif %}
+  sender: {{ multi_certbot_notification.sender | default('') }}
+  recipient: {{ multi_certbot_notification.recipient | default('') }}
+{% endif %}
+
+{% if multi_certbot_restart_services | default([] ) | count > 0 %}
+restarts:
+  {% for service in multi_certbot_restart_services %}
+  - service: {{ service.get('service') }}
+  {% endfor %}
+{% endif %}

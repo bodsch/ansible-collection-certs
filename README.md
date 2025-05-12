@@ -25,9 +25,13 @@ Tested on
 
 | Role                                                                       | Build State | Description |
 |:---------------------------------------------------------------------------| :---------: | :----       |
-| [bodsch.certs.snakeoil](./roles/snakeoil/README.md)                         | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/snakeoil.yml?branch=main)][snakeoil] | build a simple snakeoil certificate for a test environment. |
+| [bodsch.certs.snakeoil](./roles/snakeoil/README.md)                        | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/snakeoil.yml?branch=main)][snakeoil] | build a simple snakeoil certificate for a test environment. |
+| [bodsch.certs.step_ca](./roles/step_ca/README.md)                          | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/step_ca.yml?branch=main)][step_ca]   | install and configure `step_ca`. |
+| [bodsch.certs.certbot](./roles/certbot/README.md)                          | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/certbot.yml?branch=main)][certbot]   | certbot role for multiple ACME certificates. |
 
 [snakeoil]: https://github.com/bodsch/ansible-collection-certs/actions/workflows/snakeoil.yml
+[step_ca]: https://github.com/bodsch/ansible-collection-certs/actions/workflows/step_ca.yml
+[certbot]: https://github.com/bodsch/ansible-collection-certs/actions/workflows/certbot.yml
 
 ### Modules
 
@@ -36,52 +40,6 @@ Tested on
 
 
 
-
-## Installing this collection
-
-You can install the memsource collection with the Ansible Galaxy CLI:
-
-```bash
-#> ansible-galaxy collection install bodsch.certs
-```
-
-To install directly from GitHub:
-
-```bash
-#> ansible-galaxy collection install git@github.com:bodsch/ansible-collection-certs.git
-```
-
-
-You can also include it in a `requirements.yml` file and install it with `ansible-galaxy collection install -r requirements.yml`, using the format:
-
-```yaml
----
-collections:
-  - name: bodsch.certs
-```
-
-The python module dependencies are not installed by `ansible-galaxy`.  They can
-be manually installed using pip:
-
-```bash
-pip install -r requirements.txt
-```
-
-## Using this collection
-
-
-You can either call modules by their Fully Qualified Collection Name (FQCN), such as `bodsch.certs.remove_ansible_backups`, 
-or you can call modules by their short name if you list the `bodsch.certs` collection in the playbook's `collections` keyword:
-
-
-
-```yaml
----
-- name: remove older ansible backup files
-  bodsch.certs.remove_ansible_backups:
-    path: /etc
-    holds: 4
-```
 
 
 ## Contribution

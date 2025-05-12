@@ -56,7 +56,8 @@ class StepCA():
         self.step_name = module.params.get("name", None)
         self.step_password_file = module.params.get("password_file", None)
         self.step_dns = module.params.get("dns", [])
-        self.step_provisioners = module.params.get("with_provisioners", [])
+        self.step_provisioners = module.params.get("with_provisioners")
+        self.step_config = module.params.get("config")
 
         self._step = module.get_bin_path('step-cli', True)
         self.step_root_cert = os.path.join(self.step_home, ".step", "certs", "root_ca.crt")
@@ -111,7 +112,7 @@ class StepCA():
             return dict(
                 failed=False,
                 changed=False,
-                msg="cae already created."
+                msg="CA is already created."
             )
 
         args = []
@@ -159,31 +160,65 @@ class StepCA():
 
         current_claims = dict()
         needed_claims = dict()
+        claims = dict()
 
         hashed_current = None
         hashed_needed = None
 
-        if os.path.exists(self.step_config_file):
+        if len(self.step_config) > 0:
 
-            needed_claims = dict(
-                claims=dict(
-                    # TLS Cert
-                    defaultTLSCertDuration="48h",
-                    minTLSCertDuration="5m",
-                    maxTLSCertDuration="168h",                   # 7 Tage
-                    # HOST SSH Cert
-                    defaultHostSSHCertDuration="168h",
-                    minHostSSHCertDuration="5m",
-                    maxHostSSHCertDuration="1680h",
-                    # USER SSH Cert
-                    defaultUserSSHCertDuration="12h",
-                    minUserSSHCertDuration="5m",
-                    maxUserSSHCertDuration="72h",
-                    #
-                    disableRenewal=False,
-                    allowRenewalAfterExpiry=False,
-                )
-            )
+            tls_duration = self.step_config.get("tls_duration",{})
+            tls_duration_default = tls_duration.get("default", None)
+            tls_duration_min = tls_duration.get("min", None)
+            tls_duration_max = tls_duration.get("max", None)
+
+            ssh_durations = self.step_config.get("ssh_durations",{})
+            ssh_duration_host = ssh_durations.get("host",{})
+            ssh_duration_user = ssh_durations.get("user",{})
+
+            ssh_duration_host_default = ssh_duration_host.get("default",None)
+            ssh_duration_host_min = ssh_duration_host.get("min",None)
+            ssh_duration_host_max = ssh_duration_host.get("max",None)
+
+            ssh_duration_user_default = ssh_duration_user.get("default",None)
+            ssh_duration_user_min = ssh_duration_user.get("min",None)
+            ssh_duration_user_max = ssh_duration_user.get("max",None)
+
+            disable_renewal = self.step_config.get("disable_renewal",None)
+            allow_renewal_after_expiry = self.step_config.get("allow_renewal_after_expiry",None)
+
+            if tls_duration_default:
+                claims["defaultTLSCertDuration"] = tls_duration_default
+            if tls_duration_default:
+                claims["minTLSCertDuration"] = tls_duration_min
+            if tls_duration_default:
+                claims["maxTLSCertDuration"] = tls_duration_max
+
+            if ssh_duration_host_default:
+                claims["defaultHostSSHCertDuration"] = ssh_duration_host_default
+            if ssh_duration_host_min:
+                claims["minHostSSHCertDuration"] = ssh_duration_host_min
+            if ssh_duration_host_max:
+                claims["maxHostSSHCertDuration"] = ssh_duration_host_max
+
+            if ssh_duration_user_default:
+                claims["defaultUserSSHCertDuration"] = ssh_duration_user_default
+            if ssh_duration_user_min:
+                claims["minUserSSHCertDuration"] = ssh_duration_user_min
+            if ssh_duration_user_max:
+                claims["maxUserSSHCertDuration"] = ssh_duration_user_max
+
+            if disable_renewal is not None:
+                claims["disableRenewal"] = disable_renewal
+
+            if allow_renewal_after_expiry is not None:
+                claims["allowRenewalAfterExpiry"] = allow_renewal_after_expiry
+
+            needed_claims.update({"claims": claims})
+
+            self.module.log(msg=f"  - {needed_claims}")
+
+        if os.path.exists(self.step_config_file):
 
             with open(self.step_config_file, "r") as f:
                 ca_data = json.load(f)
@@ -199,11 +234,11 @@ class StepCA():
         if isinstance(current_claims, dict) and isinstance(needed_claims, dict):
             if hashed_current or hashed_needed:
 
-                # self.module.log(msg=f"  current_claims : '{current_claims}'")
-                # self.module.log(msg=f"  needed_claims  : '{needed_claims}'")
-                #
-                # self.module.log(msg=f"  hashed_current : '{hashed_current}'")
-                # self.module.log(msg=f"  hashed_needed  : '{hashed_needed}'")
+                self.module.log(msg=f"  current_claims : '{current_claims}'")
+                self.module.log(msg=f"  needed_claims  : '{needed_claims}'")
+
+                self.module.log(msg=f"  hashed_current : '{hashed_current}'")
+                self.module.log(msg=f"  hashed_needed  : '{hashed_needed}'")
 
                 if hashed_current == hashed_needed:
                     return result
@@ -318,7 +353,13 @@ def main():
         ),
         with_provisioners=dict(
             required=False,
-            type="list"
+            type="list",
+            default=[]
+        ),
+        config=dict(
+            required=False,
+            type="dict",
+            default={}
         )
     )
 

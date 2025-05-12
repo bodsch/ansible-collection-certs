@@ -1,0 +1,6 @@
+#jinja2: trim_blocks: True, lstrip_blocks: True
+# {{ ansible_managed }}
+
+CERTBOT_DOMAINS=(
+  {{ multi_certbot_tls_certificates | domain_list(item) | flatten_domain_list(True) | join("\n") | indent(2) }}
+)

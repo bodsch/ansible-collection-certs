@@ -1,0 +1,28 @@
+---
+
+multi_certbot_test_cert: true
+multi_certbot_dry_run: true
+multi_certbot_auto_expand: true
+multi_certbot_staging_args: []
+
+multi_certbot_tls_certificates:
+  - domain: zweit-hirn.lan
+    subdomains: www.zweit-hirn.lan
+
+  - domain: boone-schulz.lan
+    subdomains:
+      - arch.boone-schulz.lan
+      - www.boone-schulz.lan
+
+multi_certbot_notification:
+  enabled: true
+  smtp:
+    server_name: "{{ vault__server_name | default('localhost') }}"
+    port: 465
+    auth:
+      username: "{{ vault__auth_username | default('smtptester@unknown-smtp.com') }}"
+      password: "{{ vault__auth_password | default('no-way!') }}"
+  sender:  "{{ vault__sender | default('sender@unknown-smtp.com') }}"
+  recipient:  "{{ vault__recipient | default('recipient@unknown-smtp.com') }}"
+
+...

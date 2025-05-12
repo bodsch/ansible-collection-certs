@@ -1,0 +1,69 @@
+---
+
+- name: debian
+  ansible.builtin.include_tasks: install/debian.yml
+  when:
+    - ansible_distribution | lower == "debian"
+
+- name: archlinux
+  ansible.builtin.include_tasks: install/archlinux.yml
+  when:
+    - ansible_distribution | lower == "archlinux"
+
+- name: user and group handling
+  when:
+    - step_ca_system.owner != "root" or step_ca_system.group != "root"
+  block:
+    - name: create step group
+      ansible.builtin.group:
+        name: "{{ step_ca_system.group }}"
+        state: present
+        system: true
+      when:
+        - step_ca_system.group != "root"
+
+    - name: create step user
+      ansible.builtin.user:
+        name: "{{ step_ca_system.owner }}"
+        groups: "{{ step_ca_system.group }}"
+        append: true
+        shell: /bin/bash
+        system: true
+        createhome: true
+        home: "{{ step_ca_system.home }}"
+      when:
+        - step_ca_system.owner != "root"
+
+- name: create log directory
+  ansible.builtin.file:
+    path: /var/log/step-ca
+    state: directory
+    owner: "{{ step_ca_system.owner }}"
+    group: "{{ step_ca_system.group }}"
+    mode: 0755
+
+- name: systemd
+  when:
+    - ansible_service_mgr | lower == "systemd"
+    - not running_in_check_mode
+  block:
+    - name: create step system configuration
+      ansible.builtin.template:
+        src: "default/step-ca.j2"
+        dest: "{{ step_ca_defaults_directory }}/step-ca"
+        force: true
+        owner: root
+        group: "{{ step_ca_system.group }}"
+        mode: 0640
+      notify:
+        - restart step-ca
+
+    - name: create systemd service unit
+      ansible.builtin.template:
+        src: "init/systemd/step-ca.service.j2"
+        dest: "{{ systemd_lib_directory }}/step-ca.service"
+        owner: root
+        group: root
+        mode: 0644
+      notify:
+        - daemon-reload
