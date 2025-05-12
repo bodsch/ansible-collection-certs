@@ -5,4 +5,4 @@
   any_errors_fatal: false
 
   roles:
-    - role: ansible-multidomain-certbot
+    - role: bodsch.certs.certbot

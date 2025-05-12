@@ -7,4 +7,4 @@
     NETRC: ''
 
   roles:
-    - role: ansible-multidomain-certbot
+    - role: bodsch.certs.certbot
