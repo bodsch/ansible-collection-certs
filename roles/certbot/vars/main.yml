@@ -1,20 +1,28 @@
 ---
 
-multi_certbot_requirements:
+certbot_requirements:
   # - bc
   - python3-ruamel.yaml
   - python3-dnspython
   - python3-dbus
 
-multi_certbot_system:
+certbot_system:
   user: www-data
   group: www-data
 
-multi_certbot_defaults_systemd:
+certbot_defaults_systemd:
   use_timer: true
   service_name:
     timer: certbot.timer
     service: certbot.service
+
+certbot_defaults_cron:
+  type: systemd       # alternative: systemd
+  daemon: ""          # "{{ 'cron' if ansible_os_family | lower == 'debian' else 'cronie' }}"
+  enabled: true       # [true, false]
+  minute: "58"        # 58
+  hour: "2"           # 2
+  weekday: ""         # *
 
 systemd_lib_directory: /lib/systemd/system
 

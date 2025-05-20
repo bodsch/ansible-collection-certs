@@ -2,19 +2,19 @@
 # {{ ansible_managed }}
 
 CERTBOT_DOMAINS=(
-  {{ multi_certbot_tls_certificates | flatten_domain_list | join("\n") | indent(2) }}
+  {{ certbot_tls_certificates | flatten_domain_list | join("\n") | indent(2) }}
 )
 
-CERTBOT_CONF_DIR="{{ multi_certbot_config.conf_directory }}"
+CERTBOT_CONF_DIR="{{ certbot_config.conf_directory }}"
 
-CERTBOT_ACME_DIR={{ multi_certbot_config.www_directory | default('/var/www/certbot') }}
+CERTBOT_ACME_DIR={{ certbot_config.www_directory | default('/var/www/certbot') }}
 CERTBOT_CERT_NAME=
 
 CERTBOT_CERT_FILE="${CERTBOT_CONF_DIR}/live/${CERTBOT_CERT_NAME}/fullchain.pem"
 
-CERTBOT_RSA_KEY_SIZE={{ multi_certbot_config.rsa_key_size }}
+CERTBOT_RSA_KEY_SIZE={{ certbot_config.rsa_key_size }}
 
-CERTBOT_EMAIL="{{ multi_certbot_config.email }}"
+CERTBOT_EMAIL="{{ certbot_config.email }}"
 
 CERTBOT_OPTS=
 

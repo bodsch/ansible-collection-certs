@@ -2,25 +2,25 @@
 
 - name: define full domain list
   ansible.builtin.set_fact:
-    multi_certbot_full_domain_list: "{{ multi_certbot_tls_certificates | domain_list(item) | join(' --domain ') }}"
+    certbot_full_domain_list: "{{ certbot_tls_certificates | domain_list(item) | join(' --domain ') }}"
 
 - name: create certificate with certbot certonly
   ansible.builtin.shell: |
     certbot certonly \
-      {{ multi_certbot_staging_args | join(' ') }} \
+      {{ certbot_staging_args | join(' ') }} \
       --webroot \
-      --webroot-path {{ multi_certbot_config.www_directory }} \
-      --rsa-key-size {{ multi_certbot_config.rsa_key_size }} \
-      --domain {{ multi_certbot_full_domain_list }} \
-      --cert-path {{ multi_certbot_config.conf_directory }}/live/{{ item }} \
+      --webroot-path {{ certbot_config.www_directory }} \
+      --rsa-key-size {{ certbot_config.rsa_key_size }} \
+      --domain {{ certbot_full_domain_list }} \
+      --cert-path {{ certbot_config.conf_directory }}/live/{{ item }} \
       --non-interactive \
       --agree-tos \
       --expand \
-      --email {{ multi_certbot_config.email }}
+      --email {{ certbot_config.email }}
   register: _certbot_certonly
   when:
-    - multi_certbot_full_domain_list is defined
-    - multi_certbot_full_domain_list | string | length > 0
-    - not multi_certbot_dry_run | default('true')
+    - certbot_full_domain_list is defined
+    - certbot_full_domain_list | string | length > 0
+    - not certbot_dry_run | default('true')
 
 ...

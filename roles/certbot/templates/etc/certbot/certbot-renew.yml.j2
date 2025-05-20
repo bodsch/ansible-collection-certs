@@ -4,37 +4,37 @@
 
 certbot:
   domains:
-{% for domain in multi_certbot_tls_certificates %}
+{% for domain in certbot_tls_certificates %}
     - {{ domain.get('domain') }}
 {% endfor %}
-  conf_dir: {{ multi_certbot_config.conf_directory }}
-  acme_dir: {{ multi_certbot_config.www_directory | default('/var/www/certbot') }}
-  rsa_key_size: {{ multi_certbot_config.rsa_key_size | default('4096') }}
-  email: {{ multi_certbot_config.email }}
-  expire_days_limit: {{ multi_certbot_config.expire_days_limit | default('20') }}
+  conf_dir: {{ certbot_config.conf_directory }}
+  acme_dir: {{ certbot_config.www_directory | default('/var/www/certbot') }}
+  rsa_key_size: {{ certbot_config.rsa_key_size | default('4096') }}
+  email: {{ certbot_config.email }}
+  expire_days_limit: {{ certbot_config.expire_days_limit | default('20') }}
 
-{% if multi_certbot_notification is defined and
-      multi_certbot_notification.enabled | default('false') | bool %}
+{% if certbot_notification is defined and
+      certbot_notification.enabled | default('false') | bool %}
 notification:
   enabled: true
   smtp:
-    server_name: {{ multi_certbot_notification.smtp.server_name | default('') }}
-    port: {{ multi_certbot_notification.smtp.port | default('') }}
+    server_name: {{ certbot_notification.smtp.server_name | default('') }}
+    port: {{ certbot_notification.smtp.port | default('') }}
     tls: false
-  {% if multi_certbot_notification.smtp.auth | default({}) is defined and
-        multi_certbot_notification.smtp.auth.username | default('') | string | length > 0 and
-        multi_certbot_notification.smtp.auth.password | default('') | string | length > 0 %}
+  {% if certbot_notification.smtp.auth | default({}) is defined and
+        certbot_notification.smtp.auth.username | default('') | string | length > 0 and
+        certbot_notification.smtp.auth.password | default('') | string | length > 0 %}
     auth:
-      username: {{ multi_certbot_notification.smtp.auth.username | default('') }}
-      password: {{ multi_certbot_notification.smtp.auth.password | default('') }}
+      username: {{ certbot_notification.smtp.auth.username | default('') }}
+      password: {{ certbot_notification.smtp.auth.password | default('') }}
   {% endif %}
-  sender: {{ multi_certbot_notification.sender | default('') }}
-  recipient: {{ multi_certbot_notification.recipient | default('') }}
+  sender: {{ certbot_notification.sender | default('') }}
+  recipient: {{ certbot_notification.recipient | default('') }}
 {% endif %}
 
-{% if multi_certbot_restart_services | default([] ) | count > 0 %}
+{% if certbot_restart_services | default([] ) | count > 0 %}
 restarts:
-  {% for service in multi_certbot_restart_services %}
+  {% for service in certbot_restart_services %}
   - service: {{ service.get('service') }}
   {% endfor %}
 {% endif %}

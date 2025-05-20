@@ -1,0 +1,147 @@
+---
+
+- name: merge certbot configuration between defaults and custom
+  ansible.builtin.set_fact:
+    certbot_cron: "{{ certbot_defaults_cron | combine(certbot_cron, recursive=True) }}"
+
+- name: remove background cron job
+  when:
+    - not certbot_cron.enabled | default('false') | bool
+    - certbot_cron.type | default('cron') | string | lower in ["cron", "systemd"]
+  block:
+    - name: remove cron jobs
+      when:
+        - not certbot_cron.type | default('cron') | string == "cron"
+      block:
+        - name: remove cron job for background jobs
+          ansible.builtin.cron:
+            name: automatic certbot renew
+            job: /bin/certbot-renew.py
+            user: root
+            cron_file: certbot
+            state: absent
+          failed_when: false
+
+        - name: disable certbot-renew.service
+          ansible.builtin.service:
+            name: certbot-renew.service
+            enabled: false
+          failed_when: false
+
+        - name: disable systemd timer
+          ansible.builtin.service:
+            name: certbot-renew.timer
+            enabled: false
+            state: stopped
+          failed_when: false
+
+- name: create background cron job
+  when:
+    - certbot_cron.enabled | default('false') | bool
+    - certbot_cron.type | default('cron') |  string | lower in ["cron", "systemd"]
+  block:
+    - name: remove cron file
+      when:
+        - not certbot_cron.type | default('cron') | string == "cron"
+      block:
+        - name: remove cron job for background jobs
+          ansible.builtin.cron:
+            name: automatic certbot renew
+            job: /bin/certbot-renew.py
+            user: root
+            cron_file: certbot
+            state: absent
+          failed_when: false
+
+    - name: remove system unit file
+      when:
+        - not certbot_cron.type | default('cron') | string == "systemd"
+      block:
+        - name: disable certbot background timer
+          ansible.builtin.service:
+            name: certbot-renew.timer
+            enabled: false
+            state: stopped
+          failed_when: false
+
+    - name: cron daemon
+      when:
+        - certbot_cron.enabled | default('false') | bool
+        - certbot_cron.daemon | default('') | string | length > 0
+        - certbot_cron.type | default('cron') | string == "cron"
+      block:
+        - name: ensure cron daemon is installed
+          ansible.builtin.package:
+            name: "{{ certbot_cron.daemon }}"
+            state: present
+
+        - name: create cron job for background jobs
+          ansible.builtin.cron:
+            name: automatic mysql backup
+            job: "/bin/certbot-renew.py"
+            minute: "{{ certbot_cron.minute | default('58') }}"
+            hour: "{{ certbot_cron.hour | default('2') }}"
+            weekday: "{{ certbot_cron.weekday | default('*') }}"
+            user: root
+            cron_file: certbot
+            state: present
+
+    - name: systemd unit
+      when:
+        - certbot_cron.enabled | default('false') | bool
+        - certbot_cron.type | default('cron') | string == "systemd"
+      block:
+        # - name: create certbot-renew run configuration
+        #   ansible.builtin.template:
+        #     src: etc/default/certbot-renew.j2
+        #     dest: "{{ certbot_defaults_directory }}/certbot-renew"
+        #     force: true
+        #     owner: root
+        #     group: root
+        #     mode: "0640"
+
+        - name: disable original certbot.service
+          ansible.builtin.service:
+            name: certbot.service
+            enabled: false
+            # state: stopped
+          failed_when: false
+
+        - name: disable original certbot.timer
+          ansible.builtin.service:
+            name: certbot.timer
+            enabled: false
+            # state: stopped
+          failed_when: false
+
+        - name: create systemd unit file
+          ansible.builtin.template:
+            src: etc/init/systemd/certbot-renew.service.j2
+            dest: "{{ systemd_lib_directory }}/certbot-renew.service"
+            mode: "0644"
+          notify:
+            - daemon reload
+
+        - name: create systemd timer file
+          ansible.builtin.template:
+            src: etc/init/systemd/certbot-renew.timer.j2
+            dest: "{{ systemd_lib_directory }}/certbot-renew.timer"
+            mode: "0644"
+          notify:
+            - daemon reload
+
+        - name: flush handlers
+          ansible.builtin.meta: flush_handlers
+
+        - name: ensure certbot-renew.service enabled
+          ansible.builtin.service:
+            name: certbot-renew.service
+            enabled: true
+
+        - name: enable certbot background timer
+          ansible.builtin.service:
+            name: certbot-renew.timer
+            enabled: true
+            state: started
+
+...

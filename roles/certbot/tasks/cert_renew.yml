@@ -2,8 +2,8 @@
 
 - name: copy certbot-renew.py
   ansible.builtin.copy:
-    src: multidomain-certbot-renew.py
-    dest: /bin/multidomain-certbot-renew.py
+    src: certbot-renew.py
+    dest: /bin/certbot-renew.py
     mode: 0750
 
 - name: create certbot renew.yml
@@ -14,59 +14,59 @@
 
 - name: create multi domain config files
   domain_config_files:
-    certificates: "{{ multi_certbot_tls_certificates }}"
+    certificates: "{{ certbot_tls_certificates }}"
     path: /etc/certbot/domains
   when:
-    - multi_certbot_tls_certificates | default([]) | count > 0
+    - certbot_tls_certificates | default([]) | count > 0
 
 - name: remove old cronjob for certbot renew
   ansible.builtin.file:
     state: absent
     path: /etc/cron.d/certbot
 
-- name: support systemd
-  when:
-    - ansible_service_mgr == 'systemd'
-  block:
-
-    - name: merge multi_certbot_systemd configuration between defaults and custom
-      ansible.builtin.set_fact:
-        multi_certbot_systemd: "{{ multi_certbot_defaults_systemd | combine(multi_certbot_systemd, recursive=True) }}"
-
-    - name: remove systemd {{ multi_certbot_systemd.service_name.timer }}
-      ansible.builtin.file:
-        state: absent
-        path: "/etc/systemd/system/timers.target.wants/{{ multi_certbot_systemd.service_name.timer }}"
-      when:
-        - not multi_certbot_systemd.use_timer
-
-    - name: create overwrite directory for {{ multi_certbot_systemd.service_name.service }}
-      ansible.builtin.file:
-        state: directory
-        path: "/etc/systemd/system/{{ multi_certbot_systemd.service_name.service }}.d"
-        mode: 0750
-
-    - name: create overwrite.conf for systemd
-      ansible.builtin.template:
-        src: etc/init/systemd/overwrite.conf.j2
-        dest: "/etc/systemd/system/{{ multi_certbot_systemd.service_name.service }}.d/overwrite.conf"
-        mode: 0644
-      notify:
-        - daemon reload
-        - restart certbot.timer
-
-- name: support sysv
-  when:
-    - ansible_service_mgr != 'systemd' or
-      not multi_certbot_systemd.use_timer
-  block:
-    - name: create new cronjob to renew certificates
-      ansible.builtin.cron:
-        name: "certbot renew"
-        minute: '0'
-        hour: '23'
-        user: root
-        job: /bin/multidomain-certbot-renew.py
-        cron_file: multidomain-certbot
+# - name: support systemd
+#   when:
+#     - ansible_service_mgr == 'systemd'
+#   block:
+#
+#     - name: merge certbot_systemd configuration between defaults and custom
+#       ansible.builtin.set_fact:
+#         certbot_systemd: "{{ certbot_defaults_systemd | combine(certbot_systemd, recursive=True) }}"
+#
+#     - name: remove systemd {{ certbot_systemd.service_name.timer }}
+#       ansible.builtin.file:
+#         state: absent
+#         path: "/etc/systemd/system/timers.target.wants/{{ certbot_systemd.service_name.timer }}"
+#       when:
+#         - not certbot_systemd.use_timer
+#
+#     # - name: create overwrite directory for {{ certbot_systemd.service_name.service }}
+#     #   ansible.builtin.file:
+#     #     state: directory
+#     #     path: "/etc/systemd/system/{{ certbot_systemd.service_name.service }}.d"
+#     #     mode: 0750
+#     #
+#     # - name: create overwrite.conf for systemd
+#     #   ansible.builtin.template:
+#     #     src: etc/init/systemd/overwrite.conf.j2
+#     #     dest: "/etc/systemd/system/{{ certbot_systemd.service_name.service }}.d/overwrite.conf"
+#     #     mode: 0644
+#     #   notify:
+#     #     - daemon reload
+#     #     - restart certbot.timer
+#
+# - name: support sysv
+#   when:
+#     - ansible_service_mgr != 'systemd' or
+#       not certbot_systemd.use_timer
+#   block:
+#     - name: create new cronjob to renew certificates
+#       ansible.builtin.cron:
+#         name: "certbot renew"
+#         minute: '0'
+#         hour: '23'
+#         user: root
+#         job: /bin/certbot-renew.py
+#         cron_file: certbot
 
 ...

@@ -12,4 +12,7 @@
 - name: certbot-renew script
   ansible.builtin.include_tasks: cert_renew.yml
 
+- name: cron job
+  ansible.builtin.include_tasks: cron_job.yml
+
 ...

@@ -1,6 +1,6 @@
 ---
 
-multi_certbot_requirements:
+certbot_requirements:
   # - iproute2
   # - bc
   # - python-jinja
@@ -8,11 +8,11 @@ multi_certbot_requirements:
   - python-dbus
   - python-ansi2html
 
-multi_certbot_system:
+certbot_system:
   user: http
   group: http
 
-multi_certbot_defaults_systemd:
+certbot_defaults_systemd:
   use_timer: true
   service_name:
     timer: certbot-renew.timer

@@ -3,4 +3,4 @@
 # {{ ansible_managed }}
 
 domains:
-  {{ multi_certbot_tls_certificates | domain_list(item) | flatten_domain_list(True) | join("\n") | to_nice_yaml(indent=2, sort_keys=False) | indent(width=2, first=False) }}
+  {{ certbot_tls_certificates | domain_list(item) | flatten_domain_list(True) | join("\n") | to_nice_yaml(indent=2, sort_keys=False) | indent(width=2, first=False) }}

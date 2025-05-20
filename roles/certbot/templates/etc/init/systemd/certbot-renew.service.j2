@@ -1,0 +1,13 @@
+#jinja2: trim_blocks: True, lstrip_blocks: True
+# {{ ansible_managed }}
+
+[Unit]
+Description         = Renew certificates acquired via Certbot
+Documentation       = https://eff-certbot.readthedocs.io/en/stable/
+
+[Service]
+Type                = oneshot
+ExecStart           = /bin/certbot-renew.py
+PrivateTmp          = true
+
+SyslogIdentifier    = certbot-renew

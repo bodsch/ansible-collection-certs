@@ -14,60 +14,60 @@
 
 # - name: merge certbot configuration between defaults and custom
 #   ansible.builtin.set_fact:
-#     multi_certbot_systemd: "{{ multi_certbot_defaults_systemd |
-#       combine( multi_certbot_systemd, recursive=True ) }}"
+#     certbot_systemd: "{{ certbot_defaults_systemd |
+#       combine( certbot_systemd, recursive=True ) }}"
 
-# TODO
-# only for nginx support
-- name: ensure that ssl-dhparams.pem is present
-  ansible.builtin.stat:
-    path: "{{ multi_certbot_config.conf_directory }}/ssl-dhparams.pem"
-  register: dhparams_exists
-
-- name: Downloading recommended TLS parameters ...
-  when:
-    - dhparams_exists.stat is defined
-    - not dhparams_exists.stat.exists
-  ansible.builtin.get_url:
-    url: "https://raw.githubusercontent.com/certbot/certbot/master/{{ item }}"
-    dest: "{{ multi_certbot_config.conf_directory }}/{{ item | basename }}"
-    mode: "0444"
-  loop:
-    - certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf
-    - certbot/certbot/ssl-dhparams.pem
+# # TODO
+# # only for nginx support
+# - name: ensure that ssl-dhparams.pem is present
+#   ansible.builtin.stat:
+#     path: "{{ certbot_config.conf_directory }}/ssl-dhparams.pem"
+#   register: dhparams_exists
+#
+# - name: Downloading recommended TLS parameters ...
+#   when:
+#     - dhparams_exists.stat is defined
+#     - not dhparams_exists.stat.exists
+#   ansible.builtin.get_url:
+#     url: "https://raw.githubusercontent.com/certbot/certbot/master/{{ item }}"
+#     dest: "{{ certbot_config.conf_directory }}/{{ item | basename }}"
+#     mode: "0444"
+#   loop:
+#     - certbot-nginx/certbot_nginx/_internal/tls_configs/options-ssl-nginx.conf
+#     - certbot/certbot/ssl-dhparams.pem
 
 - name: create well-known directory
   ansible.builtin.file:
     state: directory
-    path: "{{ multi_certbot_config.well_known_directory }}"
-    owner: "{{ multi_certbot_system.user }}"
-    group: "{{ multi_certbot_system.group }}"
+    path: "{{ certbot_config.well_known_directory }}"
+    owner: "{{ certbot_system.user }}"
+    group: "{{ certbot_system.group }}"
     mode: "0777"
 
 - name: fix rights for well-known directory
   ansible.builtin.file:
     state: directory
-    path: "{{ multi_certbot_config.www_directory }}"
-    owner: "{{ multi_certbot_system.user }}"
-    group: "{{ multi_certbot_system.group }}"
+    path: "{{ certbot_config.www_directory }}"
+    owner: "{{ certbot_system.user }}"
+    group: "{{ certbot_system.group }}"
     mode: "0777"
     recurse: true
 # -----------------------------------------------------------------------------
 
 - name: ensure that domain certificates are present
-  domain_certs:
-    path: "{{ multi_certbot_config.conf_directory }}/live"
+  bodsch.certs.domain_certs:
+    path: "{{ certbot_config.conf_directory }}/live"
     file: fullchain.pem
-    certificates: "{{ multi_certbot_tls_certificates }}"
+    certificates: "{{ certbot_tls_certificates }}"
   register: domain_certificates_exists
 
 - name: define missing domains
   ansible.builtin.set_fact:
-    multi_certbot_missing_domains: "{{ domain_certificates_exists.certificate_miss }}"
+    certbot_missing_domains: "{{ domain_certificates_exists.certificate_miss }}"
 
 - name: missing certificates
   ansible.builtin.debug:
-    msg: "{{ multi_certbot_missing_domains }}"
+    msg: "{{ certbot_missing_domains }}"
 
 - name: IMPORTANT NOTE
   ansible.builtin.debug:
@@ -76,21 +76,21 @@
       It depends on the response time of the web service or whether the DNS configuration is correct.
 
 - name: create a new certificate with certbot
-  certbot:
+  bodsch.certs.certbot:
     state: certonly
-    webroot_path: "{{ multi_certbot_config.www_directory }}"
-    rsa_key_size: "{{ multi_certbot_config.rsa_key_size | int }}"
-    domains: "{{ multi_certbot_tls_certificates }}"
-    certbot_base_directory: "{{ multi_certbot_config.conf_directory }}"
-    email: "{{ multi_certbot_config.email }}"
-    test_cert: "{{ multi_certbot_test_cert | default('true') }}"
-    dry_run: "{{ multi_certbot_dry_run | default('true') }}"
-    auto_expand: "{{ multi_certbot_auto_expand | default('true') }}"
-    arguments: "{{ multi_certbot_staging_args | default([]) }}"
+    webroot_path: "{{ certbot_config.www_directory }}"
+    rsa_key_size: "{{ certbot_config.rsa_key_size | int }}"
+    domains: "{{ certbot_tls_certificates }}"
+    certbot_base_directory: "{{ certbot_config.conf_directory }}"
+    email: "{{ certbot_config.email }}"
+    test_cert: "{{ certbot_test_cert | default('true') }}"
+    dry_run: "{{ certbot_dry_run | default('true') }}"
+    auto_expand: "{{ certbot_auto_expand | default('true') }}"
+    arguments: "{{ certbot_staging_args | default([]) }}"
   register: create_certificates
   when:
-    - multi_certbot_tls_certificates is defined
-    - multi_certbot_tls_certificates | count > 0
+    - certbot_tls_certificates is defined
+    - certbot_tls_certificates | count > 0
   ignore_errors: true
 
 - name: d

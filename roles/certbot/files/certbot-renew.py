@@ -427,7 +427,7 @@ class RenewCertificates():
         self.force_restarts = self.args.force_restarts
 
         self.log_file = "/var/log/certbot-renew.log"
-        self.run_dir = "/run/multidomain-certbot"
+        self.run_dir = "/run/certbot"
 
         self.log_memory_handler = MemoryLogHandler()
         self.setup_logging()

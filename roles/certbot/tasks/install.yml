@@ -1,15 +1,33 @@
 ---
 
+- name: create policy-rc.d
+  ansible.builtin.copy:
+    dest: /usr/sbin/policy-rc.d
+    content: |
+      #!/bin/sh
+      exit 101
+    mode: "0755"
+  when:
+    - not certbot_installed
+    - ansible_os_family | lower != 'archlinux'
+
 - name: install requirements
   ansible.builtin.package:
-    name: "{{ multi_certbot_requirements }}"
+    name: "{{ certbot_requirements }}"
     state: present
   when:
-    - multi_certbot_requirements | default([]) | count > 0
+    - certbot_requirements | default([]) | count > 0
 
 - name: install certbot
   ansible.builtin.package:
     name: certbot
     state: present
+
+- name: remove policy-rc.d
+  ansible.builtin.file:
+    path: /usr/sbin/policy-rc.d
+    state: absent
+  when:
+    - ansible_os_family | lower != 'archlinux'
 
 ...

@@ -2,5 +2,5 @@
 # {{ ansible_managed }}
 
 CERTBOT_DOMAINS=(
-  {{ multi_certbot_tls_certificates | domain_list(item) | flatten_domain_list(True) | join("\n") | indent(2) }}
+  {{ certbot_tls_certificates | domain_list(item) | flatten_domain_list(True) | join("\n") | indent(2) }}
 )

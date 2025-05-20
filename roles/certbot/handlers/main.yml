@@ -10,19 +10,19 @@
 - name: reload certbot
   listen: reload certbot.timer
   ansible.builtin.service:
-    name: "{{ multi_certbot_systemd.service_name.timer | default('certbot.timer') }}"
+    name: "{{ certbot_systemd.service_name.timer | default('certbot.timer') }}"
     state: reloaded
   when:
     - ansible_service_mgr == 'systemd'
-    - multi_certbot_systemd.use_timer
+    - certbot_systemd.use_timer
 
 - name: restart certbot
   listen: restart certbot.timer
   ansible.builtin.service:
-    name: "{{ multi_certbot_systemd.service_name.timer | default('certbot.timer') }}"
+    name: "{{ certbot_systemd.service_name.timer | default('certbot.timer') }}"
     state: restarted
   when:
     - ansible_service_mgr == 'systemd'
-    - multi_certbot_systemd.use_timer
+    - certbot_systemd.use_timer
 
 ...
