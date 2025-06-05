@@ -1,6 +1,0 @@
----
-
-python_pip_requirements: "/var/cache/ansible/python-pip/requirements_{{
-ansible_python.version.major }}.txt"
-
-...

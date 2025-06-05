@@ -1,8 +1,0 @@
----
-
-fail2ban_packages:
-  - fail2ban-openrc
-
-fail2ban_before_conf: paths-artix.conf
-
-...

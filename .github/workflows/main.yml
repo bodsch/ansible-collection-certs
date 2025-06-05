@@ -36,13 +36,13 @@ on:
 
 env:
   COLLECTION_NAMESPACE: bodsch
-  COLLECTION_NAME: core
+  COLLECTION_NAME: certs
   PY_COLORS: '1'
   ANSIBLE_FORCE_COLOR: '1'
 
 defaults:
   run:
-    working-directory: 'ansible-collection-core'
+    working-directory: 'ansible-collection-certs'
 
 jobs:
   arch:
@@ -62,23 +62,18 @@ jobs:
         scenario:
           - default
         collection_role:
-          - pacman
-          - fail2ban
+          - step_ca
           - snakeoil
-          - syslog_ng
-          - logrotate
-          - openvpn
-          - sysctl
-          - sshd
+          - certbot
 
     steps:
       - name: check out the codebase.
         uses: actions/checkout@v4
         with:
-          path: 'ansible-collection-core'
+          path: 'ansible-collection-certs'
 
       - name: 🐍 set up python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: "${{ matrix.python_version }}"
 

@@ -1,8 +1,0 @@
----
-
-- name: install sshd
-  ansible.builtin.package:
-    name: "{{ sshd_packages }}"
-    state: present
-
-...

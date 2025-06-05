@@ -1,9 +1,0 @@
----
-
-syslog_dependencies:
-  - pcre
-
-syslog_packages:
-  - syslog-ng
-
-...

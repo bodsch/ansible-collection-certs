@@ -1,9 +1,0 @@
----
-
-- name: start and enable service
-  ansible.builtin.service:
-    name: fail2ban
-    state: started
-    enabled: true
-
-...
