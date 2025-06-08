@@ -167,25 +167,25 @@ class StepCA():
 
         if len(self.step_config) > 0:
 
-            tls_duration = self.step_config.get("tls_duration",{})
+            tls_duration = self.step_config.get("tls_duration", {})
             tls_duration_default = tls_duration.get("default", None)
             tls_duration_min = tls_duration.get("min", None)
             tls_duration_max = tls_duration.get("max", None)
 
-            ssh_durations = self.step_config.get("ssh_durations",{})
-            ssh_duration_host = ssh_durations.get("host",{})
-            ssh_duration_user = ssh_durations.get("user",{})
+            ssh_durations = self.step_config.get("ssh_durations", {})
+            ssh_duration_host = ssh_durations.get("host", {})
+            ssh_duration_user = ssh_durations.get("user", {})
 
-            ssh_duration_host_default = ssh_duration_host.get("default",None)
-            ssh_duration_host_min = ssh_duration_host.get("min",None)
-            ssh_duration_host_max = ssh_duration_host.get("max",None)
+            ssh_duration_host_default = ssh_duration_host.get("default", None)
+            ssh_duration_host_min = ssh_duration_host.get("min", None)
+            ssh_duration_host_max = ssh_duration_host.get("max", None)
 
-            ssh_duration_user_default = ssh_duration_user.get("default",None)
-            ssh_duration_user_min = ssh_duration_user.get("min",None)
-            ssh_duration_user_max = ssh_duration_user.get("max",None)
+            ssh_duration_user_default = ssh_duration_user.get("default", None)
+            ssh_duration_user_min = ssh_duration_user.get("min", None)
+            ssh_duration_user_max = ssh_duration_user.get("max", None)
 
-            disable_renewal = self.step_config.get("disable_renewal",None)
-            allow_renewal_after_expiry = self.step_config.get("allow_renewal_after_expiry",None)
+            disable_renewal = self.step_config.get("disable_renewal", None)
+            allow_renewal_after_expiry = self.step_config.get("allow_renewal_after_expiry", None)
 
             if tls_duration_default:
                 claims["defaultTLSCertDuration"] = tls_duration_default
