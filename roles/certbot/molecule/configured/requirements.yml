@@ -1,7 +1,0 @@
----
-
-- name: nginx
-  src: https://github.com/bodsch/ansible-nginx
-  scm: git
-
-...

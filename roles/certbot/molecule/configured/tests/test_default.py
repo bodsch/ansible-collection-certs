@@ -95,7 +95,6 @@ def test_package(host, get_vars):
     "/etc/certbot/domains",
     "/etc/letsencrypt",
     "/var/www/certbot",
-    "/etc/systemd/system/certbot.service.d"
 ])
 def test_directories(host, dirs):
     d = host.file(dirs)
@@ -104,11 +103,16 @@ def test_directories(host, dirs):
 
 
 @pytest.mark.parametrize("files", [
+    "/usr/bin/certbot",
     "/etc/certbot/renew.yml",
+    "/usr/bin/certbot-renew.py",
     "/etc/certbot/domains/boone-schulz.lan.yml",
-    "/etc/certbot/domains/haus-der-schmerzen.lan.yml",
     "/etc/certbot/domains/zweit-hirn.lan.yml",
-    "/etc/systemd/system/certbot.service.d/overwrite.conf"
+    "/usr/lib/systemd/system/certbot.service",
+    "/usr/lib/systemd/system/certbot.timer",
+    "/usr/lib/systemd/system/certbot-renew.service",
+    "/usr/lib/systemd/system/certbot-renew.timer",
+    "/etc/systemd/system/timers.target.wants/certbot-renew.timer"
 ])
 def test_files(host, files):
     f = host.file(files)
@@ -116,25 +120,9 @@ def test_files(host, files):
     assert f.is_file
 
 
-# def test_user(host):
-#     assert host.group("www-data").exists
-#     assert host.user("www-data").exists
-#     assert "www-data" in host.user("www-data").groups
-#     assert host.user("www-data").home == "/var/www"
-#
-#
-# def test_service(host, get_vars):
-#     service = host.service("nginx")
-#     assert service.is_enabled
-#     assert service.is_running
-#
-#
-# def test_open_port(host, get_vars):
-#     for i in host.socket.get_listening_sockets():
-#         print(i)
-#
-#     bind_address = "0.0.0.0"
-#     bind_port = "80"
-#
-#     service = host.socket("tcp://{0}:{1}".format(bind_address, bind_port))
-#     assert service.is_listening
+def test_service(host, get_vars):
+    service = host.service("certbot-renew")
+    assert service.is_enabled
+
+    service = host.service("certbot-renew.timer")
+    assert service.is_enabled

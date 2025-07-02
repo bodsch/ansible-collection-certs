@@ -21,6 +21,10 @@ tags: []
 dependencies:
  community.crypto: "*"
  ansible.utils: "*"
+ bodsch.core: "*"
+#  - name: bodsch.core
+#    version: "=>2.7.0"
+
 
 repository: https://github.com/bodsch/ansible-collection-certs
 documentation: https://github.com/bodsch/ansible-collection-certs/README.md

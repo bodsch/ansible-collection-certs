@@ -104,7 +104,8 @@ def test_directories(host, get_vars):
     wanted_domain = get_vars.get("snakeoil_domain", None)
 
     dirs = [
-        "/etc/ssl/{0}"
+        "/opt/step-ca",
+        "/var/log/step-ca"
     ]
 
     for directory in dirs:
@@ -118,17 +119,27 @@ def test_files(host, get_vars):
     wanted_domain = get_vars.get("snakeoil_domain", None)
 
     files = [
-        "/etc/ssl/{0}/dh.pem",
-        "/etc/ssl/{0}/{0}.conf",
-        "/etc/ssl/{0}/{0}.crt",
-        "/etc/ssl/{0}/{0}.csr",
-        "/etc/ssl/{0}/{0}.key",
-        "/etc/ssl/{0}/{0}.pem",
+        "/etc/default/step-ca",
+        "/usr/bin/step-ca",
+        "/usr/bin/step-cli",
+        "/usr/lib/systemd/system/step-ca.service",
+        "/opt/step-ca/.step/config/ca.json",
+        "/opt/step-ca/.step/config/defaults.json",
+        "/opt/step-ca/.step/secrets/intermediate_ca_key",
+        "/opt/step-ca/.step/secrets/root_ca_key"
     ]
 
     for file in files:
         f = host.file(file.format(wanted_domain))
         assert f.exists
+
+
+def test_open_port(host, get_vars):
+    for i in host.socket.get_listening_sockets():
+        print(i)
+
+    service = host.socket("tcp://0.0.0.0:9000")
+    assert service.is_listening
 
 
 def test_cert(host, get_vars):

@@ -1,9 +1,0 @@
----
-
-vault__server_name: "mail.boone-schulz.de"
-vault__auth_username: "tech-nick@boone-schulz.de"
-vault__auth_password: "17PVetD8f6FuDR6FJCsB"
-vault__sender: "tech-nick@boone-schulz.de"
-vault__recipient: "tech-nick@boone-schulz.de"
-
-...
