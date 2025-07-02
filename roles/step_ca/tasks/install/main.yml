@@ -3,7 +3,7 @@
 - name: debian
   ansible.builtin.include_tasks: install/debian.yml
   when:
-    - ansible_distribution | lower == "debian"
+    - ansible_os_family | lower == "debian"
 
 - name: archlinux
   ansible.builtin.include_tasks: install/archlinux.yml
