@@ -40,7 +40,7 @@ on:
 
 env:
   COLLECTION_NAMESPACE: bodsch
-  COLLECTION_NAME: core
+  COLLECTION_NAME: certs
   PY_COLORS: '1'
   ANSIBLE_FORCE_COLOR: '1'
 
