@@ -5,3 +5,6 @@ __pycache__
 .cache
 .directory
 .ansible
+roles/**/.github
+roles/**/tox.ini
+roles/**/test-requirements.txt
