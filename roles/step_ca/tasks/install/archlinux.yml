@@ -1,0 +1,13 @@
+---
+
+- name: update package cache
+  become: true
+  ansible.builtin.package:
+    update_cache: true
+
+- name: install dependencies
+  ansible.builtin.package:
+    name: "{{ step_ca_packages }}"
+    state: present
+
+...

@@ -101,13 +101,19 @@ def test_directories(host, dirs):
     assert d.is_directory
     assert d.exists
 
+@pytest.mark.parametrize("files", [
+    "/usr/lib/systemd/system/certbot.service",
+    "/usr/lib/systemd/system/certbot.timer",
+])
+def test_no_files(host, files):
+    f = host.file(files)
+    assert not f.exists
+
 
 @pytest.mark.parametrize("files", [
     "/usr/bin/certbot",
     "/etc/certbot/renew.yml",
     "/usr/bin/certbot-renew.py",
-    "/usr/lib/systemd/system/certbot.service",
-    "/usr/lib/systemd/system/certbot.timer",
     "/usr/lib/systemd/system/certbot-renew.service",
     "/usr/lib/systemd/system/certbot-renew.timer",
     "/etc/systemd/system/timers.target.wants/certbot-renew.timer"
@@ -115,7 +121,6 @@ def test_directories(host, dirs):
 def test_files(host, files):
     f = host.file(files)
     assert f.exists
-    assert f.is_file
 
 
 def test_service(host, get_vars):
