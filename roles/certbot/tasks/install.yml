@@ -30,4 +30,20 @@
   when:
     - ansible_os_family | lower != 'archlinux'
 
+- name: disable original systemd units
+  when:
+    - ansible_service_mgr == 'systemd'
+  block:
+    - name: disable original certbot.service
+      ansible.builtin.service:
+        name: certbot.service
+        enabled: false
+      failed_when: false
+
+    - name: disable original certbot.timer
+      ansible.builtin.service:
+        name: certbot.timer
+        enabled: false
+      failed_when: false
+
 ...

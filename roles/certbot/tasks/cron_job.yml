@@ -100,19 +100,19 @@
         #     group: root
         #     mode: "0640"
 
-        - name: disable original certbot.service
-          ansible.builtin.service:
-            name: certbot.service
-            enabled: false
-            # state: stopped
-          failed_when: false
-
-        - name: disable original certbot.timer
-          ansible.builtin.service:
-            name: certbot.timer
-            enabled: false
-            # state: stopped
-          failed_when: false
+        # - name: disable original certbot.service
+        #   ansible.builtin.service:
+        #     name: certbot.service
+        #     enabled: false
+        #     # state: stopped
+        #   failed_when: false
+        #
+        # - name: disable original certbot.timer
+        #   ansible.builtin.service:
+        #     name: certbot.timer
+        #     enabled: false
+        #     # state: stopped
+        #   failed_when: false
 
         - name: create systemd unit file
           ansible.builtin.template:

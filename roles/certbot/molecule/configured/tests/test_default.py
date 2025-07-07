@@ -103,8 +103,8 @@ def test_directories(host, dirs):
 
 
 @pytest.mark.parametrize("files", [
-    "/usr/lib/systemd/system/certbot.service",
-    "/usr/lib/systemd/system/certbot.timer",
+    "/etc/systemd/system/certbot.service",
+    "/etc/systemd/system/certbot.timer",
 ])
 def test_no_files(host, files):
     f = host.file(files)
