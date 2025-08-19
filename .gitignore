@@ -8,3 +8,4 @@ __pycache__
 roles/**/.github
 roles/**/tox.ini
 roles/**/test-requirements.txt
+hooks
