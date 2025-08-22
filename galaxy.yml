@@ -2,7 +2,7 @@
 namespace: bodsch
 name: certs
 
-version: 0.9.2
+version: 1.0.0
 
 readme: README.md
 
@@ -19,12 +19,10 @@ license_file: ''
 tags: []
 
 dependencies:
- community.crypto: "*"
+ # community.crypto: "2.25.0"
+ community.crypto: ">=3.0.0"
  ansible.utils: "*"
  bodsch.core: "*"
-#  - name: bodsch.core
-#    version: "=>2.7.0"
-
 
 repository: https://github.com/bodsch/ansible-collection-certs
 documentation: https://github.com/bodsch/ansible-collection-certs/README.md

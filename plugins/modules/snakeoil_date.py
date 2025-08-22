@@ -12,13 +12,25 @@ from datetime import datetime
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ansible_collections.community.crypto.plugins.module_utils.crypto.module_backends.certificate_info import (
-    get_certificate_info,
-)
+CertificateInfoRetrieval = None
 
-from ansible_collections.community.crypto.plugins.module_utils.crypto.support import (
-    get_relative_time_option,
-)
+try:
+    from ansible_collections.community.crypto.plugins.module_utils.crypto.module_backends.certificate_info import (
+        get_certificate_info,
+    )
+except Exception:
+    from ansible_collections.community.crypto.plugins.module_utils._crypto.module_backends.certificate_info import (
+        # get_certificate_info,
+        CertificateInfoRetrieval
+    )
+try:
+    from ansible_collections.community.crypto.plugins.module_utils.crypto.support import (
+        get_relative_time_option,
+    )
+except Exception:
+    from ansible_collections.community.crypto.plugins.module_utils._time import (
+        get_relative_time_option,
+    )
 
 
 __metaclass__ = type
@@ -163,12 +175,24 @@ class SnakeoilDate(object):
             self.module.fail_json(msg)
 
         if data:
-            info = get_certificate_info(self.module, 'cryptography', data)
+
+            if CertificateInfoRetrieval:
+                cert_info = CertificateInfoRetrieval(module=self.module, content=data)
+                info = cert_info.get_info(prefer_one_fingerprint=False)
+            else:
+                info = get_certificate_info(
+                    module=self.module,
+                    backend='cryptography',
+                    content=data
+                )
 
             # self.module.log(msg=f"  - info: '{info}'")
+            self.module.log(msg=f"  - date_not_before: '{info.get('not_before')}'")
+            self.module.log(msg=f"  - date_not_after : '{info.get('not_after')}'")
+            self.module.log(msg=f"  - expired        : '{info.get('expired')}'")
 
-            date_not_before = get_relative_time_option(info.get('not_before'), 'not_before')
-            date_not_after = get_relative_time_option(info.get('not_after'), 'not_after')
+            date_not_before = get_relative_time_option(input_string=info.get('not_before'), input_name='not_before')
+            date_not_after = get_relative_time_option(input_string=info.get('not_after'), input_name='not_after')
 
             self.module.log(msg=f"  - date_not_before: '{date_not_before}'")
             self.module.log(msg=f"  - date_not_after : '{date_not_after}'")
