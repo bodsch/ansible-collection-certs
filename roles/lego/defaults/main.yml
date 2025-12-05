@@ -1,0 +1,14 @@
+---
+
+lego_version: 4.25.0
+
+lego_direct_download: false
+
+lego_release: {}
+
+lego_system_group: lego
+lego_system_user: lego
+
+logo_domain: domain.local
+
+...

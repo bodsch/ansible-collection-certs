@@ -26,7 +26,7 @@
 
 - name: support systemd
   when:
-    - ansible_service_mgr == 'systemd'
+    - ansible_facts.service_mgr == 'systemd'
   block:
 
     - name: merge certbot_systemd configuration between defaults and custom
@@ -57,7 +57,7 @@
 
 - name: support sysv
   when:
-    - ansible_service_mgr != 'systemd' or
+    - ansible_facts.service_mgr != 'systemd' or
       not certbot_systemd.use_timer
   block:
     - name: create new cronjob to renew certificates

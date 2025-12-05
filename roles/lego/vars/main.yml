@@ -1,0 +1,28 @@
+---
+
+lego_main_version: "{{ lego_version[0:3] }}"
+
+lego_install_path: /usr/local/opt/lego/{{ lego_version }}
+
+lego_delegate_to: localhost
+
+lego_local_tmp_directory: "{{
+  lookup('env', 'CUSTOM_LOCAL_TMP_DIRECTORY') |
+  default(lookup('env', 'HOME') ~ '/.cache/ansible/lego', true) }}/{{ lego_version }}"
+
+lego_dependencies: []
+
+lego_defaults_release:
+  download_url: https://github.com/go-acme/lego/releases
+  file: "lego_v{{ lego_version }}_{{ ansible_facts.system | lower }}_{{ system_architecture }}.tar.gz"
+  binary: lego
+
+go_arch_map:
+  x86_64: 'amd64'
+  aarch64: 'arm64'
+  armv6l: 'armv6'
+  armv7l: 'armv7'
+
+system_architecture: "{{ go_arch_map[ansible_architecture] | default(ansible_architecture) }}"
+
+...

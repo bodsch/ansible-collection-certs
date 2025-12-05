@@ -3,12 +3,12 @@
 - name: debian
   ansible.builtin.include_tasks: install/debian.yml
   when:
-    - ansible_os_family | lower == "debian"
+    - ansible_facts.os_family | lower == "debian"
 
 - name: archlinux
   ansible.builtin.include_tasks: install/archlinux.yml
   when:
-    - ansible_distribution | lower == "archlinux"
+    - ansible_facts.distribution | lower == "archlinux"
 
 - name: user and group handling
   when:
@@ -44,7 +44,7 @@
 
 - name: systemd
   when:
-    - ansible_service_mgr | lower == "systemd"
+    - ansible_facts.service_mgr | lower == "systemd"
     - not running_in_check_mode
   block:
     - name: create step system configuration

@@ -2,22 +2,23 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, print_function
+
+import argparse
+import datetime
+import json
+import logging
 import os
+import socket
+import subprocess
 import sys
 import time
-import json
-import yaml
-import argparse
-import logging
-import datetime
-import subprocess
-import socket
-from dns.resolver import Resolver
-import dns.exception
-import dbus
 
+import dbus
+import dns.exception
+import yaml
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+from dns.resolver import Resolver
 
 """
 https://www.programcreek.com/python/example/102802/cryptography.x509.load_der_x509_certificate
@@ -25,20 +26,20 @@ https://www.programcreek.com/python/example/102802/cryptography.x509.load_der_x5
 
 
 class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKCYAN = "\033[96m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
 
 
 class MemoryLogHandler(logging.Handler):
     """
-        Speichert Log-Meldungen in einer internen Liste
+    Speichert Log-Meldungen in einer internen Liste
     """
 
     def __init__(self):
@@ -63,14 +64,15 @@ class ServiceManager:
         self.init_system = self.detect_init_system()
 
     def detect_init_system(self):
-        """
-        """
+        """ """
         _init_system = "unknown"
 
         if os.path.isdir("/run/systemd/system"):
             _init_system = "systemd"
         try:
-            result = subprocess.run(["rc-status"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            result = subprocess.run(
+                ["rc-status"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             if result.returncode == 0:
                 _init_system = "openrc"
         except FileNotFoundError:
@@ -94,31 +96,36 @@ class ServiceManager:
             try:
                 full_name = self._systemd_unit_name(service_name)
                 bus = dbus.SystemBus()
-                systemd = bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1')
-                manager = dbus.Interface(systemd, 'org.freedesktop.systemd1.Manager')
+                systemd = bus.get_object(
+                    "org.freedesktop.systemd1", "/org/freedesktop/systemd1"
+                )
+                manager = dbus.Interface(systemd, "org.freedesktop.systemd1.Manager")
                 unit_path = manager.LoadUnit(full_name)
-                unit = bus.get_object('org.freedesktop.systemd1', unit_path)
+                unit = bus.get_object("org.freedesktop.systemd1", unit_path)
                 props = dbus.Interface(unit, dbus.PROPERTIES_IFACE)
                 return {
-                    "ActiveState": str(props.Get("org.freedesktop.systemd1.Unit", "ActiveState")),
-                    "SubState": str(props.Get("org.freedesktop.systemd1.Unit", "SubState")),
-                    "error": False
+                    "ActiveState": str(
+                        props.Get("org.freedesktop.systemd1.Unit", "ActiveState")
+                    ),
+                    "SubState": str(
+                        props.Get("org.freedesktop.systemd1.Unit", "SubState")
+                    ),
+                    "error": False,
                 }
             except Exception as e:
-                return {
-                    "stderr": str(e),
-                    "error": True
-                }
+                return {"stderr": str(e), "error": True}
 
         elif self.init_system == "openrc":
             try:
                 cmd = ["rc-service", service_name, "status"]
-                result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                result = subprocess.run(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                )
                 return {
                     "error": result.returncode != 0,
                     "stdout": result.stdout.strip(),
                     "stderr": result.stderr.strip(),
-                    "code": result.returncode
+                    "code": result.returncode,
                 }
             except Exception as e:
                 return {"error": str(e)}
@@ -128,19 +135,31 @@ class ServiceManager:
     def list_services(self):
         if self.init_system == "systemd":
             try:
-                cmd = ["systemctl", "list-units", "--type=service", "--no-pager", "--no-legend" ]
-                result = subprocess.run(
-                    cmd,
-                    stdout=subprocess.PIPE, text=True)
-                services = [line.split()[0].removesuffix('.service') for line in result.stdout.strip().split("\n") if line]
+                cmd = [
+                    "systemctl",
+                    "list-units",
+                    "--type=service",
+                    "--no-pager",
+                    "--no-legend",
+                ]
+                result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+                services = [
+                    line.split()[0].removesuffix(".service")
+                    for line in result.stdout.strip().split("\n")
+                    if line
+                ]
                 return services
             except Exception as e:
                 return [f"Fehler: {e}"]
 
         elif self.init_system == "openrc":
             try:
-                result = subprocess.run(["rc-status", "--servicelist"], stdout=subprocess.PIPE, text=True)
-                services = [line.strip() for line in result.stdout.strip().split("\n") if line]
+                result = subprocess.run(
+                    ["rc-status", "--servicelist"], stdout=subprocess.PIPE, text=True
+                )
+                services = [
+                    line.strip() for line in result.stdout.strip().split("\n") if line
+                ]
                 return services
             except Exception as e:
                 return [f"Fehler: {e}"]
@@ -153,11 +172,13 @@ class ServiceManager:
             try:
                 full_name = self._systemd_unit_name(service_name)
                 bus = dbus.SystemBus()
-                systemd = bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1')
-                manager = dbus.Interface(systemd, 'org.freedesktop.systemd1.Manager')
+                systemd = bus.get_object(
+                    "org.freedesktop.systemd1", "/org/freedesktop/systemd1"
+                )
+                manager = dbus.Interface(systemd, "org.freedesktop.systemd1.Manager")
                 unit_path = manager.LoadUnit(full_name)
-                unit = bus.get_object('org.freedesktop.systemd1', unit_path)
-                interface = dbus.Interface(unit, 'org.freedesktop.systemd1.Unit')
+                unit = bus.get_object("org.freedesktop.systemd1", unit_path)
+                interface = dbus.Interface(unit, "org.freedesktop.systemd1.Unit")
                 getattr(interface, action)("replace")
                 logging.info(f"{service_name} wurde erfolgreich {action.lower()}ed.")
             except Exception as e:
@@ -173,16 +194,19 @@ class ServiceManager:
 
     def _systemd_unit_name(self, service_name):
         """Fügt .service an, falls nicht vorhanden"""
-        return service_name if service_name.endswith(".service") else service_name + ".service"
+        return (
+            service_name
+            if service_name.endswith(".service")
+            else service_name + ".service"
+        )
 
 
 class DNSResolver:
-    """
-    """
+    """ """
 
     def dns_lookup(self, dns_name, timeout=3, dns_resolvers=[]):
         """
-          Perform a simple DNS lookup, return results in a dictionary
+        Perform a simple DNS lookup, return results in a dictionary
         """
         resolver = Resolver()
         resolver.timeout = float(timeout)
@@ -248,12 +272,10 @@ class DNSResolver:
 
 
 class SMTPManager:
-    """
-    """
+    """ """
 
     def __init__(self, logging, subject, sender={}, recipient={}, smtp={}, body=None):
-        """
-        """
+        """ """
         self.logging = logging
 
         self.subject = subject
@@ -292,16 +314,19 @@ class SMTPManager:
         for line in self.body.splitlines():
             logging.debug(f"     {line}")
 
-        logging.debug(f"  - smtp server: {self.smtp_server}:{self.smtp_port} {self.smtp_tls}")
+        logging.debug(
+            f"  - smtp server: {self.smtp_server}:{self.smtp_port} {self.smtp_tls}"
+        )
         logging.debug("--------------------------------------------------")
 
     def send_email(self):
         """
-            Sendet die gespeicherten Logs per E-Mail.
+        Sendet die gespeicherten Logs per E-Mail.
         """
         import smtplib
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText
+
         from ansi2html import Ansi2HTMLConverter
 
         # konvertiere Escpae Sequencen zu html tags
@@ -326,8 +351,7 @@ class SMTPManager:
         #     logging.debug(f"     {bcolors.FAIL}{line}{bcolors.ENDC}")
 
         if self.smtp_server and self.sender_email and self.recipient_email:
-            """
-            """
+            """ """
             # msg = MIMEText(self.(remove_ansi_escape_sequences(self.body))
 
             msg.attach(part1)
@@ -354,7 +378,7 @@ class SMTPManager:
                 if self.smtp_auth_username and self.smtp_auth_password:
                     logging.debug("smtp auth")
                     try:
-                        server.esmtp_features['auth'] = 'LOGIN PLAIN'
+                        server.esmtp_features["auth"] = "LOGIN PLAIN"
                         server.login(self.smtp_auth_username, self.smtp_auth_password)
                     except smtplib.SMTPHeloError as e:
                         logging.error(f"smtplib.SMTPHeloError: {e}")
@@ -369,7 +393,7 @@ class SMTPManager:
                 server.sendmail(
                     from_addr=self.sender_email,
                     to_addrs=self.recipient_email,
-                    msg=msg.as_string()
+                    msg=msg.as_string(),
                 )
                 server.quit()
 
@@ -404,21 +428,20 @@ class SMTPManager:
 
     def remove_ansi_escape_sequences(self, text):
         import re
-        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-        return ansi_escape.sub('', text)
+
+        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+        return ansi_escape.sub("", text)
 
 
-class RenewCertificates():
-    """
-    """
+class RenewCertificates:
+    """ """
 
     def __init__(self):
-        """
-        """
+        """ """
         self.args = {}
         self.parse_args()
 
-        self.logger = logging.getLogger('certbot-renew')
+        self.logger = logging.getLogger("certbot-renew")
         self.logger.setLevel(logging.DEBUG)
         self.log_level = self.args.log_level
 
@@ -432,79 +455,92 @@ class RenewCertificates():
         self.log_memory_handler = MemoryLogHandler()
         self.setup_logging()
 
-        self.datetime = time.strftime('%Y%m%d-%H%M')
+        self.datetime = time.strftime("%Y%m%d-%H%M")
         self.datetime_readable = time.strftime("%Y-%m-%d")
 
         self.read_config()
         self.certbot_acme_directory = self.config_acme_dir
 
     def parse_args(self):
-        p = argparse.ArgumentParser(description='renew certbot certicates')
+        p = argparse.ArgumentParser(description="renew certbot certicates")
 
         p.add_argument(
-            "-C", "--config",
+            "-C",
+            "--config",
             required=False,
             default="/etc/certbot/renew.yml",
-            help="configuration file")
+            help="configuration file",
+        )
 
         p.add_argument(
-            "-D", "--directory",
+            "-D",
+            "--directory",
             required=False,
             default="/etc/letsencrypt/live",
-            help="located certificates")
+            help="located certificates",
+        )
 
         p.add_argument(
-            "-L", "--list",
+            "-L",
+            "--list",
             required=False,
-            action='store_true',
-            help="list certificates")
+            action="store_true",
+            help="list certificates",
+        )
 
         p.add_argument(
-            "--dry-run",
-            required=False,
-            action='store_true',
-            help="do nothing")
+            "--dry-run", required=False, action="store_true", help="do nothing"
+        )
 
         p.add_argument(
             "--force-restarts",
             required=False,
-            action='store_true',
-            help="force servie restarts.")
+            action="store_true",
+            help="force servie restarts.",
+        )
 
         p.add_argument(
             "--verbose",
             required=False,
-            action='store_true',
-            help="verbose output for certbot")
+            action="store_true",
+            help="verbose output for certbot",
+        )
 
         p.add_argument(
             "--log-level",
             type=str,
             default="INFO",
             choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-            help="Setzt das Log-Level (default: INFO)")
+            help="Setzt das Log-Level (default: INFO)",
+        )
 
         self.args = p.parse_args()
 
     def setup_logging(self):
         """
-            Konfiguriert das Logging mit dem gegebenen Log-Level.
+        Konfiguriert das Logging mit dem gegebenen Log-Level.
         """
         log_level_numeric = getattr(
-            logging, self.log_level)  # Umwandlung von Text in Level
+            logging, self.log_level
+        )  # Umwandlung von Text in Level
         # DEBUG-Format (kurzer Zeitstempel)
         debug_formatter = logging.Formatter(
-            "%(asctime)s - %(levelname)s - %(message)s", "%H:%M:%S")
+            "%(asctime)s - %(levelname)s - %(message)s", "%H:%M:%S"
+        )
 
         # Standard-Format für INFO+ (langer Zeitstempel)
         standard_formatter = logging.Formatter(
-            "%(asctime)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S")
+            "%(asctime)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S"
+        )
 
         # Datei-Logging (speichert ALLE Logs mit passendem Format)
         file_handler = logging.FileHandler(self.log_file)
         file_handler.setLevel(log_level_numeric)
         file_handler.setFormatter(
-            debug_formatter if log_level_numeric == logging.DEBUG else standard_formatter)
+            debug_formatter
+            if log_level_numeric == logging.DEBUG
+            else standard_formatter
+        )
 
         # Konsolen-Logging (INFO und höher)
         console_handler = logging.StreamHandler(sys.stdout)
@@ -522,9 +558,10 @@ class RenewCertificates():
         logger.addHandler(self.log_memory_handler)
 
     def run(self):
-        """
-        """
-        logging.info(f"Renew multiple TLS certificates via certbot at {self.datetime_readable} ...")
+        """ """
+        logging.info(
+            f"Renew multiple TLS certificates via certbot at {self.datetime_readable} ..."
+        )
 
         logging.debug("--------------------------------------------------")
         logging.debug(f" config file    : {self.args.config}")
@@ -569,8 +606,7 @@ class RenewCertificates():
         self.send_log_email()
 
     def read_config(self):
-        """
-        """
+        """ """
         data = None
         self.config_domains = []
         self.config_acme_dir = "/var/www/certbot"
@@ -592,30 +628,35 @@ class RenewCertificates():
                     logging.error(f"  ERROR : '{exc}'")
 
         if data:
-            self.config_domains = data.get('certbot', {}).get('domains', [])
-            self.config_acme_dir = data.get('certbot', {}).get('acme_dir', "/var/www/certbot")
-            self.config_expire_days_limit = data.get('certbot', {}).get('expire_days_limit', 20)
-            self.config_rsa_key_size = data.get('certbot', {}).get('rsa_key_size', 4096)
-            self.config_email = data.get('certbot', {}).get('email', 'pki@test.com')
+            self.config_domains = data.get("certbot", {}).get("domains", [])
+            self.config_acme_dir = data.get("certbot", {}).get(
+                "acme_dir", "/var/www/certbot"
+            )
+            self.config_expire_days_limit = data.get("certbot", {}).get(
+                "expire_days_limit", 20
+            )
+            self.config_rsa_key_size = data.get("certbot", {}).get("rsa_key_size", 4096)
+            self.config_email = data.get("certbot", {}).get("email", "pki@test.com")
 
             notification = data.get("notification", {})
 
             if notification:
-                self.notification_enabled = notification.get(
-                    "enabled", False)
-                self.notification_smtp_host = notification.get(
-                    "smtp", {}).get("server_name", None)
-                self.notification_smtp_port = notification.get(
-                    "smtp", {}).get("port", 587)
-                self.notification_smtp_tls = notification.get(
-                    "smtp", {}).get("tls", True)
+                self.notification_enabled = notification.get("enabled", False)
+                self.notification_smtp_host = notification.get("smtp", {}).get(
+                    "server_name", None
+                )
+                self.notification_smtp_port = notification.get("smtp", {}).get(
+                    "port", 587
+                )
+                self.notification_smtp_tls = notification.get("smtp", {}).get(
+                    "tls", True
+                )
                 smtp_auth = notification.get("smtp", {}).get("auth", {})
                 self.notification_smtp_username = smtp_auth.get("username", None)
                 self.notification_smtp_password = smtp_auth.get("password", None)
 
                 self.notification_sender = notification.get("sender", None)
-                self.notification_recipient = notification.get(
-                    "recipient", None)
+                self.notification_recipient = notification.get("recipient", None)
 
             restart_services = data.get("restarts", [])
             if len(restart_services) > 0:
@@ -623,8 +664,7 @@ class RenewCertificates():
                 self.restarts = restart_services
 
     def restart_services(self):
-        """
-        """
+        """ """
         logging.debug("restart_services()")
         # TODO
         restart_dir = os.path.join(self.run_dir, "restarts")
@@ -632,13 +672,10 @@ class RenewCertificates():
 
         logging.debug(f" services: {self.restarts}")
 
-        services = [x.get('service') for x in self.restarts]
+        services = [x.get("service") for x in self.restarts]
 
         if os.path.exists(restart_dir):
-            restart_needed = any(
-                _file.is_file()
-                for _file in os.scandir(restart_dir)
-            )
+            restart_needed = any(_file.is_file() for _file in os.scandir(restart_dir))
         logging.debug(f" restart needed : {restart_needed}")
 
         if self.force_restarts:
@@ -651,7 +688,9 @@ class RenewCertificates():
             logging.debug(f" - {srv_manager.list_services()}")
 
             matched_services = [s for s in services if s in srv_manager.list_services()]
-            not_matched_services = ','.join([s for s in services if s not in srv_manager.list_services()])
+            not_matched_services = ",".join(
+                [s for s in services if s not in srv_manager.list_services()]
+            )
 
             logging.debug(f" - {matched_services}")
 
@@ -662,8 +701,12 @@ class RenewCertificates():
                     srv_manager.restart_service(srv)
 
             else:
-                logging.error("A restart of services is necessary. But services are missing. A restart is not carried out.")
-                logging.error(f"The following services are not available: {not_matched_services}")
+                logging.error(
+                    "A restart of services is necessary. But services are missing. A restart is not carried out."
+                )
+                logging.error(
+                    f"The following services are not available: {not_matched_services}"
+                )
 
         with os.scandir(restart_dir) as files:
             for f in files:
@@ -671,8 +714,7 @@ class RenewCertificates():
                     os.remove(f.path)
 
     def check_renew_certificates(self, domain):
-        """
-        """
+        """ """
         # logging.debug(f"check_renew_certificates({domain})")
         # logging.debug(self.current_certificates)
 
@@ -685,20 +727,25 @@ class RenewCertificates():
         logging.debug(domain_data)
 
         if domain_data:
-            cert_expire = domain_data.get('expire', 0)
+            cert_expire = domain_data.get("expire", 0)
             logging.info(f"  expire in {cert_expire} days")
 
         if cert_expire <= self.config_expire_days_limit:
             return True
         else:
-            logging.info("  There is nothing to do, the certificate is currently up to date.")
+            logging.info(
+                "  There is nothing to do, the certificate is currently up to date."
+            )
 
             msg = None
             should_renewed_in = cert_expire - self.config_expire_days_limit
 
             if int(should_renewed_in) < 0:
                 msg = "  The certificate must be renewed immediately!"
-            if int(should_renewed_in) > 4 and int(should_renewed_in) < self.config_expire_days_limit:
+            if (
+                int(should_renewed_in) > 4
+                and int(should_renewed_in) < self.config_expire_days_limit
+            ):
                 msg = f"  The certificate will be renewed in {should_renewed_in} days."
 
             if msg:
@@ -707,8 +754,7 @@ class RenewCertificates():
             return False
 
     def check_expand_certificates(self, domain):
-        """
-        """
+        """ """
         result = True
 
         logging.debug(f" current certs  {self.current_certificates}")
@@ -716,8 +762,7 @@ class RenewCertificates():
         return result
 
     def _renew_certificate(self, domain):
-        """
-        """
+        """ """
         logging.debug(f"_renew_certificate({domain})")
 
         _domain_list = self.read_domains_from_config(domain)
@@ -760,6 +805,7 @@ class RenewCertificates():
         # .decode("utf-8")
 
         import shlex
+
         command = shlex.split(cmd)
         logging.debug(f"  run command: {command}")
 
@@ -767,7 +813,12 @@ class RenewCertificates():
             logging.info("run in dry-run ..")
             return
 
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
         stdout, stderr = process.communicate()
         rc = process.returncode
 
@@ -780,7 +831,7 @@ class RenewCertificates():
 
             # marker for restart services
             marker = os.path.join(self.run_dir, "restarts", domain)
-            open(marker, mode='a').close()
+            open(marker, mode="a").close()
 
             return True
         else:
@@ -796,8 +847,7 @@ class RenewCertificates():
             return False
 
     def read_domains_from_config(self, domain):
-        """
-        """
+        """ """
         logging.debug(f"read_domains_from_config({domain})")
 
         data = None
@@ -814,7 +864,7 @@ class RenewCertificates():
         # DNS verify for domains!
         if data:
 
-            domains = data.get('domains', [])
+            domains = data.get("domains", [])
             domains = self.validate_domains_from_config(domains)
 
             return domains
@@ -822,8 +872,7 @@ class RenewCertificates():
             return []
 
     def validate_domains_from_config(self, domain_list):
-        """
-        """
+        """ """
         logging.debug(f"validate_domains_from_config({domain_list})")
 
         reject_domains = []
@@ -853,13 +902,19 @@ class RenewCertificates():
     def print_current_certs(self):
 
         if self.current_certificates:
-            logging.info(json.dumps(self.current_certificates, sort_keys=False, indent=2))
+            logging.info(
+                json.dumps(self.current_certificates, sort_keys=False, indent=2)
+            )
 
     def send_log_email(self):
         """
-            Sendet die gespeicherten Logs per E-Mail.
+        Sendet die gespeicherten Logs per E-Mail.
         """
-        if self.notification_smtp_host and self.notification_sender and self.notification_recipient:
+        if (
+            self.notification_smtp_host
+            and self.notification_sender
+            and self.notification_recipient
+        ):
             pass
         else:
             logging.error("missing smtp server_nemr, or sender, or recipient.")
@@ -868,22 +923,18 @@ class RenewCertificates():
         smtp = SMTPManager(
             logging=logging,
             subject=f"renew TLS certificates at {socket.getfqdn()} - {self.datetime_readable}",
-            sender=dict(
-                email=self.notification_sender
-            ),
-            recipient=dict(
-                email=self.notification_recipient
-            ),
+            sender=dict(email=self.notification_sender),
+            recipient=dict(email=self.notification_recipient),
             smtp=dict(
                 server_name=self.notification_smtp_host,
                 port=self.notification_smtp_port,
                 tls=self.notification_smtp_tls,
                 auth=dict(
                     username=self.notification_smtp_username,
-                    password=self.notification_smtp_password
-                )
+                    password=self.notification_smtp_password,
+                ),
             ),
-            body=self.log_memory_handler.get_logs()
+            body=self.log_memory_handler.get_logs(),
         )
 
         if self.dry_run:
@@ -894,10 +945,10 @@ class RenewCertificates():
 
     def _current_certificates(self):
         """
-            current_certificates() {
-              echo "current certificates"
-              certbot certificates
-            }
+        current_certificates() {
+          echo "current certificates"
+          certbot certificates
+        }
         """
         alt_names = []
         result = {}
@@ -909,28 +960,44 @@ class RenewCertificates():
                 if file == "fullchain.pem":
                     f = os.path.join(currentpath, file)
 
-                    with open(f, 'br') as cert_content:
+                    with open(f, "br") as cert_content:
                         cert_data = cert_content.read()
-                        cert_decoded = x509.load_pem_x509_certificate(cert_data, default_backend())
+                        cert_decoded = x509.load_pem_x509_certificate(
+                            cert_data, default_backend()
+                        )
 
                         # print(cert_decoded.issuer)
 
-                        subject = cert_decoded.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)[0].value.lower()
+                        subject = cert_decoded.subject.get_attributes_for_oid(
+                            x509.oid.NameOID.COMMON_NAME
+                        )[0].value.lower()
                         # hash_algorithm = cert_decoded.signature_hash_algorithm
 
-                        SubjectAlternativeName = cert_decoded.extensions.get_extension_for_oid(x509.extensions.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+                        SubjectAlternativeName = (
+                            cert_decoded.extensions.get_extension_for_oid(
+                                x509.extensions.ExtensionOID.SUBJECT_ALTERNATIVE_NAME
+                            )
+                        )
                         if SubjectAlternativeName:
-                            alt_names = SubjectAlternativeName.value.get_values_for_type(x509.extensions.DNSName)
+                            alt_names = (
+                                SubjectAlternativeName.value.get_values_for_type(
+                                    x509.extensions.DNSName
+                                )
+                            )
 
-                        _valid_after = cert_decoded.not_valid_after_utc.strftime(dateformat)
+                        _valid_after = cert_decoded.not_valid_after_utc.strftime(
+                            dateformat
+                        )
                         _now = datetime.datetime.now(datetime.UTC).strftime(dateformat)
-                        expire = (datetime.datetime.strptime(_valid_after, dateformat) - datetime.datetime.strptime(_now, dateformat)).days
+                        expire = (
+                            datetime.datetime.strptime(_valid_after, dateformat)
+                            - datetime.datetime.strptime(_now, dateformat)
+                        ).days
 
                         result[subject] = {}
-                        result[subject].update({
-                            "expire": expire,
-                            "alt_names": alt_names
-                        })
+                        result[subject].update(
+                            {"expire": expire, "alt_names": alt_names}
+                        )
 
         logging.debug(json.dumps(result, sort_keys=False, indent=2))
 
@@ -938,7 +1005,7 @@ class RenewCertificates():
 
     def _test_running_webserver(self, host="0.0.0.0", port=80):
         """
-            test_running_webserver
+        test_running_webserver
         """
         import socket
         from contextlib import closing
@@ -952,8 +1019,7 @@ class RenewCertificates():
                 return False
 
     def validate_well_known(self):
-        """
-        """
+        """ """
         result = dict()
 
         if self.config_domains is not None and len(self.config_domains) > 0:
@@ -967,9 +1033,9 @@ class RenewCertificates():
         return result
 
     def _well_known_request(self, domain):
-        """
-        """
+        """ """
         import uuid
+
         import requests
 
         http_staus_code = None
@@ -980,10 +1046,12 @@ class RenewCertificates():
 
         if os.path.exists(config_file):
             _uid = str(uuid.uuid4())
-            uuid_file = os.path.join(self.certbot_acme_directory, ".well-known/acme-challenge", _uid)
+            uuid_file = os.path.join(
+                self.certbot_acme_directory, ".well-known/acme-challenge", _uid
+            )
             domain_challenge = f"http://{domain}/.well-known/acme-challenge/{_uid}"
 
-            f = open(uuid_file, mode='a')
+            f = open(uuid_file, mode="a")
             f.write(_uid)
             f.close()
 
@@ -1013,7 +1081,9 @@ class RenewCertificates():
                     logging.info(f"  - {domain}: success")
                     result = True
                 else:
-                    logging.error(f"  - {domain}: failed (code: {http_staus_code}, msg: {http_message})")
+                    logging.error(
+                        f"  - {domain}: failed (code: {http_staus_code}, msg: {http_message})"
+                    )
             else:
                 logging.info(f"  - {domain}: failed")
 
@@ -1028,8 +1098,7 @@ class RenewCertificates():
         return result
 
     def _diff_domains(self, domain):
-        """
-        """
+        """ """
         # logging.debug(f"::_diff_domains({domain})")
 
         data = None
@@ -1062,7 +1131,9 @@ class RenewCertificates():
 
                 alt_names = domain_avail.get("alt_names")
                 logging.debug(f"  alt name : {alt_names}")
-                _cert = sorted(alt_names)  # self.current_certificates.get(domain, {}).get("alt_names"))
+                _cert = sorted(
+                    alt_names
+                )  # self.current_certificates.get(domain, {}).get("alt_names"))
             else:
                 pass
 
@@ -1080,8 +1151,7 @@ class RenewCertificates():
             logging.info(diff)
 
     def __define_certbot_opts(self, domain, expand=False):
-        """
-        """
+        """ """
         # local domain="${1}"
         # local expand="${2:-}"
         # local CERTBOT_CERT_FILE=$(define_cert_file ${domain})
@@ -1110,8 +1180,7 @@ class RenewCertificates():
         return cmd
 
     def create_directory(self, directory):
-        """
-        """
+        """ """
         try:
             os.makedirs(directory, exist_ok=True)
         except FileExistsError:
@@ -1128,5 +1197,5 @@ def main():
     p.run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

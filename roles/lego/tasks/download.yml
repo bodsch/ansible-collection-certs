@@ -1,0 +1,146 @@
+---
+
+- name: get latest release
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when:
+    - lego_version == "latest"
+  block:
+    - name: get latest release
+      delegate_to: localhost
+      become: false
+      run_once: true
+      bodsch.scm.github_latest:
+        project: go-acme
+        repository: lego
+        user: "{{ lookup('env', 'GH_USER') | default(omit) }}"
+        password: "{{ lookup('env', 'GH_TOKEN') | default(omit) }}"
+      register: _latest_release
+
+    - name: re-define lego_version
+      ansible.builtin.set_fact:
+        lego_version: "{{ _latest_release.latest_release }}"
+
+- name: define download information
+  ansible.builtin.set_fact:
+    lego_release: "{{ lego_defaults_release | combine(lego_release, recursive=True) }}"
+
+- name: define delegate instance for download handling
+  ansible.builtin.set_fact:
+    lego_delegate_to: "{{ ansible_host }}"
+    lego_local_tmp_directory: "{{
+        lookup('env', 'CUSTOM_LOCAL_TMP_DIRECTORY') |
+        default('/var/cache/ansible/lego', true) }}/{{ lego_version }}"
+  when:
+    - lego_direct_download
+
+- name: create download directory
+  become: false
+  delegate_to: "{{ lego_delegate_to }}"
+  run_once: "{{ 'false' if lego_direct_download else 'true' }}"
+  ansible.builtin.file:
+    path: "{{ lego_local_tmp_directory }}"
+    state: directory
+    mode: "0750"
+  check_mode: false
+
+- name: detect the downloaded lego archive
+  become: false
+  delegate_to: "{{ lego_delegate_to }}"
+  run_once: "{{ 'false' if lego_direct_download else 'true' }}"
+  ansible.builtin.stat:
+    path: "{{ lego_local_tmp_directory }}/{{ lego_release.file }}"
+  register: stat_lego_archive
+
+- name: download
+  when:
+    - stat_lego_archive.stat is defined
+    - not stat_lego_archive.stat.exists | default('false')
+    - not running_in_check_mode
+  block:
+    - name: checksum
+      become: false
+      delegate_to: localhost
+      run_once: true
+      block:
+        - name: get checksum list
+          bodsch.scm.github_checksum:
+            project: go-acme
+            repository: lego
+            checksum_file: sha256sums.txt
+            user: "{{ lookup('env', 'GH_USER') | default(omit) }}"
+            password: "{{ lookup('env', 'GH_TOKEN') | default(omit) }}"
+            architecture: "{{ ansible_architecture }}"
+            system: "{{ ansible_facts.system }}"
+            version: "v{{ lego_version }}"
+          register: _latest_checksum
+
+        - name: define checksum for {{ system_architecture }} architecture
+          ansible.builtin.set_fact:
+            __lego_checksum: "sha256:{{ _latest_checksum.checksum }}"
+          when:
+            - _latest_checksum.rc == 0
+            - _latest_checksum.checksum is defined
+            - _latest_checksum.checksum | string | length > 0
+
+    - name: download lego binary archive
+      become: false
+      delegate_to: "{{ lego_delegate_to }}"
+      run_once: "{{ 'false' if lego_direct_download else 'true' }}"
+      ansible.builtin.get_url:
+        url: "{{ lego_release.download_url }}/download/v{{ lego_version }}/{{ lego_release.file }}"
+        dest: "{{ lego_local_tmp_directory }}/{{ lego_release.file }}"
+        checksum: "{{ __lego_checksum | default(omit) }}"
+        mode: 0660
+      register: _download_archive
+      until: _download_archive is succeeded
+      retries: 5
+      delay: 2
+
+    # - name: extract lego archive
+    #   become: false
+    #   delegate_to: "{{ lego_delegate_to }}"
+    #   run_once: "{{ 'false' if lego_direct_download else 'true' }}"
+    #   ansible.builtin.unarchive:
+    #     src: "{{ lego_local_tmp_directory }}/{{ lego_release.file }}"
+    #     dest: "{{ lego_local_tmp_directory }}"
+    #     copy: false
+
+  rescue:
+    - name: delete download directory
+      become: false
+      delegate_to: "{{ lego_delegate_to }}"
+      run_once: "{{ 'false' if lego_direct_download else 'true' }}"
+      ansible.builtin.file:
+        path: "{{ lego_local_tmp_directory }}"
+        state: absent
+
+    - name: exit with fail
+      ansible.builtin.fail:
+        msg: A serious error occurred when downloading the archive.
+
+- name: detect extracted binary
+  become: false
+  delegate_to: "{{ lego_delegate_to }}"
+  run_once: "{{ 'false' if lego_direct_download else 'true' }}"
+  ansible.builtin.stat:
+    path: "{{ lego_local_tmp_directory }}/{{ lego_release.binary }}"
+  register: stat_lego_binary
+
+- name: extract lego archive
+  become: false
+  delegate_to: "{{ lego_delegate_to }}"
+  run_once: "{{ 'false' if lego_direct_download else 'true' }}"
+  ansible.builtin.unarchive:
+    src: "{{ lego_local_tmp_directory }}/{{ lego_release.file }}"
+    dest: "{{ lego_local_tmp_directory }}/"
+    copy: false
+    #extra_opts:
+    #  - --strip-components=1
+  when:
+    - not running_in_check_mode
+    - stat_lego_binary.stat is defined
+    - not stat_lego_binary.stat.exists | default('false')
+
+...

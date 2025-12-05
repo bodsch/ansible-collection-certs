@@ -47,7 +47,7 @@ certbot_restart_services: []
 
 certbot_cron:
   type: systemd       # alternative: cron
-  daemon: ""          # "{{ 'cron' if ansible_os_family | lower == 'debian' else 'cronie' }}"
+  daemon: ""          # "{{ 'cron' if ansible_facts.os_family | lower == 'debian' else 'cronie' }}"
   enabled: true       # [true, false]
   minute: "58"        # 58
   hour: "2"           # 2

@@ -1,8 +1,13 @@
 #jinja2: trim_blocks: True, lstrip_blocks: True
 # {{ ansible_managed }}
 
-[Service]
-ExecStart        =
-ExecStart        = /bin/certbot-renew.py
+[Unit]
+Description       = Certbot (disabled, use certbot-renew as replacement)
+Documentation     = file:///usr/share/doc/python-certbot-doc/html/index.html
+Documentation     = https://certbot.eff.org/docs
 
-SyslogIdentifier = certbot-renew
+[Service]
+Type              = oneshot
+ExecStart         = /bin/true
+# ExecStart         = /usr/bin/certbot -q renew --no-random-sleep-on-renew
+PrivateTmp        = true

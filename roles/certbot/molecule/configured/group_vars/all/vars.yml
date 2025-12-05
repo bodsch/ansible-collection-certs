@@ -6,13 +6,13 @@ certbot_auto_expand: true
 certbot_staging_args: []
 
 certbot_tls_certificates:
-  - domain: zweit-hirn.lan
-    subdomains: www.zweit-hirn.lan
+  - domain: foo.lan
+    subdomains: www.foo.lan
 
-  - domain: boone-schulz.lan
+  - domain: bar.lan
     subdomains:
-      - arch.boone-schulz.lan
-      - www.boone-schulz.lan
+      - arch.bar.lan
+      - www.bar.lan
 
 certbot_notification:
   enabled: true
@@ -22,7 +22,7 @@ certbot_notification:
     auth:
       username: "{{ vault__auth_username | default('smtptester@unknown-smtp.com') }}"
       password: "{{ vault__auth_password | default('no-way!') }}"
-  sender:  "{{ vault__sender | default('sender@unknown-smtp.com') }}"
-  recipient:  "{{ vault__recipient | default('recipient@unknown-smtp.com') }}"
+  sender: "{{ vault__sender | default('sender@unknown-smtp.com') }}"
+  recipient: "{{ vault__recipient | default('recipient@unknown-smtp.com') }}"
 
 ...

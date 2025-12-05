@@ -6,66 +6,121 @@
 # SPDX-License-Identifier: GPL-3.0
 
 from __future__ import absolute_import, division, print_function
+
 import os
 import shutil
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.bodsch.core.plugins.module_utils.directory import create_directory
 from ansible_collections.bodsch.core.plugins.module_utils.checksum import Checksum
+from ansible_collections.bodsch.core.plugins.module_utils.directory import (
+    create_directory,
+)
 from ansible_collections.bodsch.core.plugins.module_utils.module_results import results
 
 # ---------------------------------------------------------------------------------------
 
-DOCUMENTATION = """
+DOCUMENTATION = r"""
 ---
 module: domain_config_files
-author: "Bodo 'bodsch' Schulz (@bodsch) <bodo@boone-schulz.de>"
-version_added: 1.0.0
-
-short_description: creates a certificate with letsentcrypt certbot
-
+version_added: "1.0.0"
+author:
+  - "Bodo 'bodsch' Schulz (@bodsch) <bodo@boone-schulz.de>"
+short_description: Manage YAML configuration files with domain lists
 description:
-    - creates a certificate with letsentcrypt certbot
-
+  - Generate simple YAML configuration files containing lists of domains and subdomains.
+  - One configuration file per primary domain is created in the given directory.
 options:
-  certificates:
-    description:
-      -
-    required: true
-    type: list
-
   path:
     description:
-      -
+      - Directory in which the domain configuration files will be created.
+      - One file per domain with the name C(<domain>.yml) is written in this directory.
+    type: path
     required: true
-    type: str
+  certificates:
+    description:
+      - List of domain definitions for which configuration files should be generated.
+    type: list
+    elements: dict
+    required: true
+    suboptions:
+      domain:
+        description:
+          - Primary domain name.
+          - Used as the filename C(<domain>.yml) and as the first entry in the YAML C(domains) list.
+        type: str
+        required: true
+      subdomains:
+        description:
+          - Additional domains to include in the configuration.
+          - Can be a list of strings, a single string, or C(null).
+          - When omitted or C(null), only the primary domain is written.
+        type: raw
+notes:
+  - Existing configuration files are only overwritten when the rendered content changes.
+  - When a configuration file for a domain does not yet exist, it will be created.
 """
 
-EXAMPLES = """
-- name: create multi domain config files
-  domain_config_files:
+EXAMPLES = r"""
+- name: Create domain configuration files for multiple domains
+  bodsch.core.domain_config_files:
+    path: /etc/certbot/domains.d
     certificates:
-      - domain: foo.bar
-        subdomains: www.foo.bar
-    path: /etc/certbot/domains
-    mode: "0640"
-  when:
-    - multi_certbot_tls_certificates | default([]) | count > 0
+      - domain: example.com
+        subdomains:
+          - www.example.com
+          - api.example.com
+      - domain: example.org
+        subdomains: null
+
+- name: Create configuration for a single domain with one extra name
+  bodsch.core.domain_config_files:
+    path: /etc/certbot/domains.d
+    certificates:
+      - domain: example.net
+        subdomains: www.example.net
+
+- name: Only primary domains without subdomains
+  bodsch.core.domain_config_files:
+    path: /etc/certbot/domains.d
+    certificates:
+      - domain: foo.example.com
+      - domain: bar.example.com
 """
 
-RETURN = """
+RETURN = r"""
+---
+changed:
+  description: Whether any configuration file was created or modified.
+  type: bool
+  returned: always
+failed:
+  description: Whether the module execution failed.
+  type: bool
+  returned: always
+state:
+  description:
+    - List of per-domain result dictionaries.
+    - Each item has a single key with the domain name mapped to its result.
+  returned: always
+  type: list
+  elements: dict
+  sample:
+    - example.com:
+        changed: true
+        msg: The configuration was successfully written.
+    - example.org:
+        changed: false
+        msg: The configuration has not been changed.
 """
 
 # ---------------------------------------------------------------------------------------
 
 
 class DomainConfigs(object):
-    """
-    """
+    """ """
 
     def __init__(self, module):
-        """
-        """
+        """ """
         self.module = module
 
         self.certificates = module.params.get("certificates")
@@ -76,8 +131,7 @@ class DomainConfigs(object):
         self.tmp_directory = os.path.join("/run/.ansible", f"certbot.{str(pid)}")
 
     def run(self):
-        """
-        """
+        """ """
         result_state = []
 
         create_directory(directory=self.tmp_directory, mode="0750")
@@ -100,10 +154,7 @@ class DomainConfigs(object):
             else:
                 domains.append(domain)
 
-            file_name = os.path.join(
-                self.base_directory,
-                f"{domain}.yml"
-            )
+            file_name = os.path.join(self.base_directory, f"{domain}.yml")
             tmp_file = os.path.join(self.tmp_directory, f"{domain}.yml")
 
             self.__write_file(domains, tmp_file)
@@ -126,8 +177,7 @@ class DomainConfigs(object):
                     shutil.copyfile(f"{tmp_file}", f"{file_name}")
 
                 res[domain] = dict(
-                    changed=True,
-                    msg="The configuration was successfully written."
+                    changed=True, msg="The configuration was successfully written."
                 )
             elif not changed and old_checksum is None:
                 # shutil.copyfile(tmp_file, file_name)
@@ -136,25 +186,21 @@ class DomainConfigs(object):
                     shutil.copyfile(f"{tmp_file}", f"{file_name}")
 
                 res[domain] = dict(
-                    changed=True,
-                    msg="The configuration was successfully created."
+                    changed=True, msg="The configuration was successfully created."
                 )
 
             else:
                 res[domain] = dict(
-                    changed=False,
-                    msg="The configuration has not been changed."
+                    changed=False, msg="The configuration has not been changed."
                 )
 
             result_state.append(res)
 
-        _state, _changed, _failed, state, changed, failed = results(self.module, result_state)
-
-        result = dict(
-            changed=_changed,
-            failed=failed,
-            state=result_state
+        _state, _changed, _failed, state, changed, failed = results(
+            self.module, result_state
         )
+
+        result = dict(changed=_changed, failed=failed, state=result_state)
 
         shutil.rmtree(self.tmp_directory)
 
@@ -162,7 +208,7 @@ class DomainConfigs(object):
 
     def __yaml_template(self, domain_list):
         """
-          generate data from dictionary
+        generate data from dictionary
         """
         tpl = """---
 # generated by ansible
@@ -181,8 +227,7 @@ domains:
         return d
 
     def __write_file(self, domains, data_file):
-        """
-        """
+        """ """
         data = self.__yaml_template(domains)
         with open(f"{data_file}", "w") as f:
             f.write(data)
@@ -191,14 +236,8 @@ domains:
 def main():
 
     specs = dict(
-        certificates=dict(
-            required=True,
-            type="list"
-        ),
-        path=dict(
-            required=True,
-            type="str"
-        ),
+        certificates=dict(required=True, type="list"),
+        path=dict(required=True, type="str"),
     )
 
     module = AnsibleModule(
@@ -213,5 +252,5 @@ def main():
     module.exit_json(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

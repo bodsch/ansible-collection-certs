@@ -7,159 +7,183 @@
 from __future__ import absolute_import, division, print_function
 
 import os
+
+from ansible.module_utils.basic import AnsibleModule
+
 # import json
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 
-from ansible.module_utils.basic import AnsibleModule
-
 # ---------------------------------------------------------------------------------------
 
-DOCUMENTATION = """
+DOCUMENTATION = r"""
 ---
 module: certbot
+version_added: "1.0.0"
 author: "Bodo 'bodsch' Schulz (@bodsch) <bodo@boone-schulz.de>"
-version_added: 1.0.0
 
-short_description: creates a certificate with letsentcrypt certbot
+short_description: Creates a certificate using Let's Encrypt Certbot
 
 description:
-    - creates a new certificate with letsentcrypt certbot
+  - This module manages TLS certificates using the Let's Encrypt Certbot client.
+  - It supports issuing new certificates, renewing them, and handling domain expansions.
+  - Certificates are created using the webroot plugin.
 
 options:
   state:
     description:
-      - (C(certonly))
-    default: certonly
+      - The Certbot operation to perform.
+      - Only C(certonly) is currently supported.
     required: true
+    type: str
+    choices: ["certonly"]
+    default: certonly
 
   webroot_path:
     description:
-      -
+      - Path to the webroot directory used for the domain validation.
     required: true
     type: str
 
   rsa_key_size:
     description:
-      -
-    default: 4096
+      - Size of the RSA key to generate for the certificate.
+    required: false
     type: int
+    default: 4096
 
   domains:
     description:
-      -
+      - List of domains for the certificate.
+      - Each item must be a dictionary with a C(domain) and optional C(subdomains) field.
     required: true
     type: list
 
   certbot_base_directory:
     description:
-      -
-    default: /etc/letsencrypt
+      - Base directory for Certbot certificate files.
     required: false
+    type: str
+    default: /etc/letsencrypt
 
   email:
     description:
-      -
+      - Email address for Certbot registration and recovery.
     required: true
     type: str
 
   quiet:
     description:
-      -
-    default: false
+      - Run Certbot with minimal output.
     required: false
     type: bool
+    default: false
 
   test_cert:
     description:
-      -
-    default: false
+      - Obtain a test certificate from the staging environment.
     required: false
     type: bool
+    default: false
 
   dry_run:
     description:
-      -
-    default: false
+      - Perform a trial run without saving any certificates.
     required: false
     type: bool
+    default: false
 
   auto_expand:
     description:
-      -
-    default: false
+      - Automatically expand an existing certificate if new subdomains are added.
     required: false
     type: bool
+    default: false
 
   arguments:
     description:
-      -
+      - Additional Certbot arguments passed directly to the CLI.
     required: false
     type: list
 """
 
-EXAMPLES = """
-- name: create certificate with certbot certonly
+EXAMPLES = r"""
+- name: Create certificate with certbot
   certbot:
     state: certonly
-    arguments:
-      - --test-cert
-      - --dry-run
     webroot_path: /var/www/certbot
     rsa_key_size: 4096
     domains:
-      - domain: foo.bar
-        subdomains: www.foo.bar
-    certbot_base_directory: /etc/letsencrypt
-    email: pki@test.com
-  register: create_certificates
-
-- name: create test certificate with certbot
-  certbot:
-    state: certonly
-    dry_run: true
-    test_cert: true
-    webroot_path: /var/www/certbot
-    rsa_key_size: 4096
-    domains:
-      - domain: foo.bar
-        subdomains: www.foo.bar
-    certbot_base_directory: /etc/letsencrypt
-    email: pki@test.com
-  register: create_certificates
-
-- name: create test certificate with certbot and extend the existing certificate
-  certbot:
-    state: certonly
-    dry_run: true
-    test_cert: true
-    auto_expand: true
-    webroot_path: /var/www/certbot
-    rsa_key_size: 4096
-    domains:
-      - domain: foo.bar
+      - domain: example.com
         subdomains:
-          - www.foo.bar
-          - stage.foo.bar
-    certbot_base_directory: /etc/letsencrypt
+          - www.example.com
+    email: admin@example.com
+
+- name: Test certificate with dry run
+  certbot:
+    state: certonly
+    dry_run: true
+    test_cert: true
+    webroot_path: /var/www/certbot
+    domains:
+      - domain: example.com
+        subdomains:
+          - www.example.com
+          - stage.example.com
+    email: admin@example.com
+
+- name: Create certificate with additional certbot arguments
+  certbot:
+    state: certonly
+    webroot_path: /var/www/certbot
+    rsa_key_size: 2048
+    arguments:
+      - --preferred-challenges
+      - http
+    domains:
+      - domain: foo.bar
     email: pki@test.com
-  register: create_certificates
-
 """
 
-RETURN = """
+RETURN = r"""
+result:
+  description: Dictionary with the result per domain.
+  returned: always
+  type: dict
+  sample: {
+    "example.com": {
+      "rc": 0,
+      "cmd": "certbot certonly --email admin@example.com --webroot ...",
+      "failed": false,
+      "changed": true
+    }
+  }
+
+failed:
+  description: Whether the task failed.
+  returned: always
+  type: bool
+
+changed:
+  description: Whether any changes were made (e.g. new certificate issued).
+  returned: always
+  type: bool
+
+errors:
+  description: Number of domains that failed to be processed.
+  returned: always
+  type: int
 """
+
 
 # ---------------------------------------------------------------------------------------
 
 
 class DomainCerts(object):
-    """
-    """
+    """ """
 
     def __init__(self, module):
-        """
-        """
+        """ """
         self.module = module
 
         self.state = module.params.get("state")
@@ -174,11 +198,10 @@ class DomainCerts(object):
         self.auto_expand = module.params.get("auto_expand")
         self.arguments = module.params.get("arguments")
 
-        self._certbot = module.get_bin_path('certbot', True)
+        self._certbot = module.get_bin_path("certbot", True)
 
     def run(self):
-        """
-        """
+        """ """
         _failed = True
         _changed = False
 
@@ -242,12 +265,16 @@ class DomainCerts(object):
 
             if len(current_certificates) != 0:
                 if len(domain_list) > len(current_certificates):
-                    self.module.log(msg=f"The certificate for '{domain_name}' must be expand.")
+                    self.module.log(
+                        msg=f"The certificate for '{domain_name}' must be expand."
+                    )
                     # domain_diff = list(set(domain_list) - set(current_certificates))
                     # expand = True
 
                 elif len(domain_list) < len(current_certificates):
-                    self.module.log(msg=f"The certificate for '{domain_name}' should be revoked and renewed.")
+                    self.module.log(
+                        msg=f"The certificate for '{domain_name}' should be revoked and renewed."
+                    )
                     # domain_diff = list(set(current_certificates) - set(domain_list))
 
                 elif len(domain_list) == len(current_certificates):
@@ -259,7 +286,7 @@ class DomainCerts(object):
 
             if not os.path.exists(cert_path):
                 """
-                    certificat not exists
+                certificat not exists
                 """
                 self.module.log(msg=f"Create a new certificate for '{domain_name}'")
 
@@ -298,10 +325,7 @@ class DomainCerts(object):
                 _failed = False
                 _changed = True
                 result_msgs[domain_name] = dict(
-                    rc=rc,
-                    cmd=" ".join(args),
-                    failed=False,
-                    changed=True
+                    rc=rc, cmd=" ".join(args), failed=False, changed=True
                 )
 
             else:
@@ -312,13 +336,11 @@ class DomainCerts(object):
                     stderr=err,
                     stdout=out,
                     failed=True,
-                    changed=False
+                    changed=False,
                 )
             # ---------------------------------------------------------------------
 
-        error_count = len(
-            {k for k, v in result_msgs.items() if v.get("failed", False)}
-        )
+        error_count = len({k for k, v in result_msgs.items() if v.get("failed", False)})
 
         if error_count != 0:
             _failed = True
@@ -328,15 +350,11 @@ class DomainCerts(object):
         self.module.log(msg=f" = {result_msgs}")
 
         return dict(
-            failed=_failed,
-            changed=_changed,
-            errors=error_count,
-            result=result_msgs
+            failed=_failed, changed=_changed, errors=error_count, result=result_msgs
         )
 
     def __cert_list(self, domain_data):
-        """
-        """
+        """ """
         # self.module.log(msg=f"__cert_list({domain_data}")
 
         domain_name = domain_data.get("domain")
@@ -363,10 +381,10 @@ class DomainCerts(object):
 
     def _current_certificates(self, domain_path):
         """
-            current_certificates() {
-              echo "current certificates"
-              certbot certificates
-            }
+        current_certificates() {
+          echo "current certificates"
+          certbot certificates
+        }
         """
         domains = []
         alt_names = []
@@ -378,15 +396,27 @@ class DomainCerts(object):
 
                     # self.module.log(msg=f"  - file: {f}")
 
-                    with open(f, 'br') as cert_content:
+                    with open(f, "br") as cert_content:
                         cert_data = cert_content.read()
-                        cert_decoded = x509.load_pem_x509_certificate(cert_data, default_backend())
+                        cert_decoded = x509.load_pem_x509_certificate(
+                            cert_data, default_backend()
+                        )
 
-                        subject = cert_decoded.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)[0].value.lower()
+                        subject = cert_decoded.subject.get_attributes_for_oid(
+                            x509.oid.NameOID.COMMON_NAME
+                        )[0].value.lower()
 
-                        SubjectAlternativeName = cert_decoded.extensions.get_extension_for_oid(x509.extensions.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+                        SubjectAlternativeName = (
+                            cert_decoded.extensions.get_extension_for_oid(
+                                x509.extensions.ExtensionOID.SUBJECT_ALTERNATIVE_NAME
+                            )
+                        )
                         if SubjectAlternativeName:
-                            alt_names = SubjectAlternativeName.value.get_values_for_type(x509.extensions.DNSName)
+                            alt_names = (
+                                SubjectAlternativeName.value.get_values_for_type(
+                                    x509.extensions.DNSName
+                                )
+                            )
 
                         # self.module.log(msg=f"  - subject  : {subject}")
                         # self.module.log(msg=f"  - alt names: {alt_names}")
@@ -401,8 +431,7 @@ class DomainCerts(object):
         return domains
 
     def __exec(self, args, check=True):
-        """
-        """
+        """ """
         rc, out, err = self.module.run_command(args, check_rc=check)
         # self.module.log(msg=f"  rc : '{rc}'")
         # self.module.log(msg=f"  out: '{out}'")
@@ -417,60 +446,22 @@ class DomainCerts(object):
 def main():
 
     specs = dict(
-        state=dict(
-            default="certonly",
-            choices=["certonly"]
-        ),
-        webroot_path=dict(
-            required=True,
-            type="str"
-        ),
-        rsa_key_size=dict(
-            type="int",
-            default=4096
-        ),
-        domains=dict(
-            required=True,
-            type="list"
-        ),
+        state=dict(default="certonly", choices=["certonly"]),
+        webroot_path=dict(required=True, type="str"),
+        rsa_key_size=dict(type="int", default=4096),
+        domains=dict(required=True, type="list"),
         certbot_base_directory=dict(
-            required=False,
-            type="str",
-            default="/etc/letsencrypt"
+            required=False, type="str", default="/etc/letsencrypt"
         ),
-        email=dict(
-            required=True,
-            type="str"
-        ),
-        quiet=dict(
-            required=False,
-            type="bool",
-            default=False
-        ),
-        test_cert=dict(
-            required=False,
-            type="bool",
-            default=False
-        ),
-        dry_run=dict(
-            required=False,
-            type="bool",
-            default=False
-        ),
-        auto_expand=dict(
-            required=False,
-            type="bool",
-            default=False
-        ),
-        arguments=dict(
-            required=False,
-            default=[],
-            type=list
-        )
+        email=dict(required=True, type="str"),
+        quiet=dict(required=False, type="bool", default=False),
+        test_cert=dict(required=False, type="bool", default=False),
+        dry_run=dict(required=False, type="bool", default=False),
+        auto_expand=dict(required=False, type="bool", default=False),
+        arguments=dict(required=False, default=[], type=list),
     )
 
     module = AnsibleModule(
-
         argument_spec=specs,
         supports_check_mode=True,
     )
@@ -481,5 +472,5 @@ def main():
     module.exit_json(**result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
