@@ -1,0 +1,113 @@
+---
+
+- name: user and group handling
+  when:
+    - lego_system_user != "root"
+  block:
+    - name: create lego group
+      ansible.builtin.group:
+        name: "{{ lego_system_group }}"
+        state: present
+        system: true
+
+    - name: create lego user
+      ansible.builtin.user:
+        name: "{{ lego_system_user }}"
+        groups: "{{ lego_system_group }}"
+        append: true
+        shell: /usr/sbin/nologin
+        system: true
+        createhome: false
+        home: /nonexistent
+
+- name: create install directory
+  ansible.builtin.file:
+    path: "{{ lego_install_path }}"
+    state: directory
+    owner: "{{ lego_system_user }}"
+    group: "{{ lego_system_group }}"
+    mode: 0755
+
+- name: detect extracted binary file for lego on '{{ lego_delegate_to }}'
+  become: false
+  delegate_to: "{{ lego_delegate_to }}"
+  run_once: "{{ 'false' if lego_direct_download else 'true' }}"
+  ansible.builtin.stat:
+    path: "{{ lego_local_tmp_directory }}/{{ lego_release.binary }}"
+  register: stat_file_binary
+
+- name: fail when extracted binary are missing
+  ansible.builtin.fail:
+    msg: "missing extracted binary on ansible controller"
+  when:
+    - not running_in_check_mode
+    - not stat_file_binary.stat.exists
+
+- name: detect installed lego binary
+  ansible.builtin.stat:
+    path: "{{ lego_install_path }}/{{ lego_release.binary }}"
+  register: stat_lego_binary
+
+- name: detect activated lego binary
+  ansible.builtin.stat:
+    path: /usr/bin/{{ lego_release.binary }}
+  register: stat_lego_activated
+
+- name: install and activate lego
+  when:
+    - not running_in_check_mode
+    - stat_file_binary.stat.exists
+    - (stat_lego_binary.stat is defined and not stat_lego_binary.stat.exists | default('false')) or
+      not stat_lego_activated.stat | bodsch.core.linked_version(lego_install_path, lego_version)
+  block:
+    - name: propagate files
+      block:
+        - name: propagate lego binary
+          ansible.builtin.copy:
+            src: "{{ lego_local_tmp_directory }}/{{ lego_release.binary }}"
+            dest: "{{ lego_install_path }}/{{ lego_release.binary }}"
+            mode: 0755
+            owner: "{{ lego_system_user }}"
+            group: "{{ lego_system_group }}"
+            remote_src: "{{ 'true' if lego_direct_download else 'false' }}"
+
+        - name: make files executable
+          ansible.builtin.file:
+            path: "{{ lego_install_path }}/{{ lego_release.binary }}"
+            mode: 0755
+            owner: "{{ lego_system_user }}"
+            group: "{{ lego_system_group }}"
+
+        - name: ensure bind exporter binary has cap_net_raw capability
+          capabilities:
+            path: "{{ lego_install_path }}/{{ lego_release.binary }}"
+            capability: cap_net_raw+ep
+            state: present
+
+        - name: create link to binary
+          ansible.builtin.file:
+            src: "{{ lego_install_path }}/{{ lego_release.binary }}"
+            dest: /usr/bin/{{ lego_release.binary }}
+            state: link
+            force: true
+            follow: false
+
+      rescue:
+        - name: delete install directory
+          ansible.builtin.file:
+            path: "{{ lego_install_path }}"
+            state: absent
+
+        - name: exit with fail
+          ansible.builtin.fail:
+            msg: A serious error occurred during the installation of the binary.
+
+- name: create custom fact file
+  when:
+    - not running_in_check_mode
+  bodsch.core.facts:
+    name: lego
+    facts:
+      version: "{{ lego_version }}"
+
+...

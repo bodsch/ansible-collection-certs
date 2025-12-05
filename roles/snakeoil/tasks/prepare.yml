@@ -36,7 +36,7 @@
   delegate_to: localhost
   run_once: true
   ansible.builtin.set_fact:
-    current_date: "{{ ansible_date_time.iso8601[0:10] }}"
+    current_date: "{{ ansible_facts.date_time.iso8601[0:10] }}"
 
 - name: check for snakeoil certificate on ansible controller
   delegate_to: localhost

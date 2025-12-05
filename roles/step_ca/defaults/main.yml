@@ -46,7 +46,7 @@ step_ca_authority:
 
 # #step_ca_force_create:
 # step_ca_force_certify_nodes: false
-# # see "{{ ansible_os_family }}.yml"
+# # see "{{ ansible_facts.os_family }}.yml"
 # step_ca_defult_ssl_certs_dir: "{{ pki_cert_dir | default('/etc/ssl/certs') }}"
 # step_ca_defult_ssl_key_dir: "{{ pki_key_dir | default('/etc/ssl/private') }}"
 #

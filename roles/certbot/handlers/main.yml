@@ -5,7 +5,7 @@
     daemon_reload: true
     force: true
   when:
-    - ansible_service_mgr == 'systemd'
+    - ansible_facts.service_mgr == 'systemd'
 
 - name: reload certbot
   listen: reload certbot.timer
@@ -13,7 +13,7 @@
     name: "{{ certbot_systemd.service_name.timer | default('certbot.timer') }}"
     state: reloaded
   when:
-    - ansible_service_mgr == 'systemd'
+    - ansible_facts.service_mgr == 'systemd'
     - certbot_systemd.use_timer
 
 - name: restart certbot
@@ -22,7 +22,7 @@
     name: "{{ certbot_systemd.service_name.timer | default('certbot.timer') }}"
     state: restarted
   when:
-    - ansible_service_mgr == 'systemd'
+    - ansible_facts.service_mgr == 'systemd'
     - certbot_systemd.use_timer
 
 ...

@@ -18,12 +18,15 @@ certbot_defaults_systemd:
 
 certbot_defaults_cron:
   type: systemd       # alternative: systemd
-  daemon: ""          # "{{ 'cron' if ansible_os_family | lower == 'debian' else 'cronie' }}"
+  daemon: ""          # "{{ 'cron' if ansible_facts.os_family | lower == 'debian' else 'cronie' }}"
   enabled: true       # [true, false]
   minute: "58"        # 58
   hour: "2"           # 2
   weekday: ""         # *
 
+certbot_defaults_directory: /etc/default
+
+systemd_etc_directory: /etc/systemd/system
 systemd_lib_directory: /lib/systemd/system
 
 ...

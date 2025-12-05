@@ -1,0 +1,28 @@
+---
+
+galaxy_info:
+  role_name: lego
+
+  author: Bodo Schulz
+  description: TBD
+
+  license: "Apache"
+  min_ansible_version: "2.10"
+
+  platforms:
+    - name: ArchLinux
+    - name: Debian
+      versions:
+        # 10
+        - buster
+        - bullseye
+
+  galaxy_tags:
+    - certificate
+    - ca
+    - certificate-authority
+    - tls
+
+dependencies: []
+
+...

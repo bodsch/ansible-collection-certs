@@ -4,50 +4,269 @@
 # (c) 2022, Bodo Schulz <bodo@boone-schulz.de>
 
 from __future__ import absolute_import, division, print_function
+
+import json
 import os
 import shutil
-import json
-
-from ansible_collections.bodsch.core.plugins.module_utils.checksum import Checksum
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.bodsch.core.plugins.module_utils.checksum import Checksum
 
 # ---------------------------------------------------------------------------------------
 
 DOCUMENTATION = r"""
 ---
 module: step_ca
-version_added: 2.7.0
-author: "Bodo Schulz (@bodsch) <bodo@boone-schulz.de>"
-
-short_description: use step-ca
-
+version_added: "1.0.0"
+short_description: Manage a local smallstep step-ca authority
+author:
+  - "Bodo Schulz (@bodsch) <bodo@boone-schulz.de>"
 description:
-    - TBD
-
-options: TBD
-
+  - Initialize and configure a local C(step-ca) Certificate Authority using the C(step-cli) tool.
+  - Creates a standalone CA PKI under the given home directory and optionally adjusts authority claims in C(ca.json).
+  - Optionally ensures an ACME provisioner exists for use with clients like C(certbot).
+requirements:
+  - step-cli
+  - step-ca
+options:
+  state:
+    description:
+      - Desired state of the CA.
+      - With C(init) the CA PKI is created if missing and authority claims may be updated.
+      - C(add-acme-provisioner) is reserved for future use and currently behaves as a no-op.
+    type: str
+    choices:
+      - init
+      - add-acme-provisioner
+    default: init
+  force:
+    description:
+      - If C(true), remove the existing C(.step) directory under I(home) before initializing the CA.
+      - Use with care, as this will destroy existing CA keys and configuration.
+    type: bool
+    default: false
+  home:
+    description:
+      - Base directory for the CA runtime environment.
+      - The C(.step) directory will be created below this path and used for certificates, keys and configuration.
+    type: path
+    required: true
+  name:
+    description:
+      - Human-readable name of the new PKI.
+      - Passed as C(--name) to C(step ca init).
+      - Required when initializing a new CA.
+    type: str
+  password_file:
+    description:
+      - File name (relative to I(home)) containing the password to encrypt the root, intermediate and provisioner keys.
+      - The file is passed as C(--password-file) and C(--provisioner-password-file) to C(step ca init).
+    type: str
+    default: password
+  dns:
+    description:
+      - DNS names or IP addresses for the CA endpoint.
+      - Each entry is passed as a separate C(--dns) argument to C(step ca init).
+    type: list
+    elements: str
+    default: []
+  with_provisioners:
+    description:
+      - Optional list used as a flag to add additional provisioners after CA initialization.
+      - If this list is non-empty, the module will ensure an ACME provisioner exists by calling
+        C(step ca provisioner add acme --type ACME --root <root_ca.crt>) when the CA is initialized.
+    type: list
+    elements: str
+    default: []
+  config:
+    description:
+      - Authority claim configuration that will be merged into the C(authority.claims) section of C(ca.json).
+      - Used to tune certificate durations, SSH certificate durations and renewal behavior.
+      - If existing claims differ from the requested ones, the configuration file is updated.
+    type: dict
+    default: {}
+    suboptions:
+      tls_duration:
+        description:
+          - Default and boundary durations for TLS certificates.
+        type: dict
+        suboptions:
+          default:
+            description:
+              - Default TLS certificate validity duration.
+            type: str
+          min:
+            description:
+              - Minimum TLS certificate validity duration.
+            type: str
+          max:
+            description:
+              - Maximum TLS certificate validity duration.
+            type: str
+      ssh_durations:
+        description:
+          - Default and boundary durations for SSH host and user certificates.
+        type: dict
+        suboptions:
+          host:
+            description:
+              - SSH host certificate durations.
+            type: dict
+            suboptions:
+              default:
+                description:
+                  - Default SSH host certificate validity duration.
+                type: str
+              min:
+                description:
+                  - Minimum SSH host certificate validity duration.
+                type: str
+              max:
+                description:
+                  - Maximum SSH host certificate validity duration.
+                type: str
+          user:
+            description:
+              - SSH user certificate durations.
+            type: dict
+            suboptions:
+              default:
+                description:
+                  - Default SSH user certificate validity duration.
+                type: str
+              min:
+                description:
+                  - Minimum SSH user certificate validity duration.
+                type: str
+              max:
+                description:
+                  - Maximum SSH user certificate validity duration.
+                type: str
+      disable_renewal:
+        description:
+          - If C(true), disables certificate renewal in the authority claims.
+        type: bool
+      allow_renewal_after_expiry:
+        description:
+          - If C(true), allows certificate renewal after expiry in the authority claims.
+        type: bool
+notes:
+  - This module does not support check mode.
 """
 
 EXAMPLES = r"""
+- name: Initialize standalone step-ca in /opt/step
+  bodsch.core.step_ca:
+    state: init
+    home: /opt/step
+    name: "My Local CA"
+    password_file: password
+    dns:
+      - localhost
 
+- name: Initialize step-ca and ensure ACME provisioner exists
+  bodsch.core.step_ca:
+    state: init
+    home: /opt/step
+    name: "My Local CA"
+    password_file: password
+    dns:
+      - localhost
+      - ca.example.com
+    with_provisioners:
+      - acme
+  register: _step_ca_init
+
+- name: Tune authority claims for TLS and SSH certificate durations
+  bodsch.core.step_ca:
+    state: init
+    home: /opt/step
+    name: "My Local CA"
+    config:
+      tls_duration:
+        default: 24h
+        min: 1h
+        max: 720h
+      ssh_durations:
+        host:
+          default: 24h
+          min: 1h
+          max: 720h
+        user:
+          default: 16h
+          min: 1h
+          max: 168h
+      disable_renewal: false
+      allow_renewal_after_expiry: true
+
+- name: Re-run initialization to update claims only (idempotent)
+  bodsch.core.step_ca:
+    state: init
+    home: /opt/step
+    name: "My Local CA"
+    config:
+      tls_duration:
+        default: 48h
 """
 
 RETURN = r"""
+changed:
+  description:
+    - Indicates if the CA PKI was created, the ACME provisioner was added or the authority claims were updated.
+  returned: always
+  type: bool
 
+failed:
+  description:
+    - Indicates if the module execution failed.
+  returned: always
+  type: bool
+
+msg:
+  description:
+    - Human readable status message from the module.
+    - For example C("CA is already created.") when initialization is skipped
+      or C("acme provisioner already created.") when the provisioner exists.
+  returned: sometimes
+  type: str
+
+result:
+  description:
+    - Raw textual result from the underlying C(step-cli) command.
+    - Contains the trimmed standard output of C(step ca init) or C(step ca provisioner add acme).
+  returned: when C(step-cli) is executed
+  type: str
+
+stdout:
+  description:
+    - Standard output from the C(step-cli) command used to initialize the CA.
+  returned: when C(step ca init) is executed and succeeds
+  type: str
+
+stderr:
+  description:
+    - Standard error output from the C(step-cli) command.
+  returned: when C(step ca init) fails
+  type: str
+
+cmd:
+  description:
+    - Full command list used to invoke C(step-cli).
+  returned: when C(step-cli) is executed
+  type: list
+  elements: str
 """
 
 # ---------------------------------------------------------------------------------------
 
 
-class StepCA():
-    """
-    """
+class StepCA:
+    """ """
+
     module = None
 
     def __init__(self, module):
-        """
-        """
+        """ """
         self.module = module
 
         self.state = module.params.get("state")
@@ -59,13 +278,16 @@ class StepCA():
         self.step_provisioners = module.params.get("with_provisioners")
         self.step_config = module.params.get("config")
 
-        self._step = module.get_bin_path('step-cli', True)
-        self.step_root_cert = os.path.join(self.step_home, ".step", "certs", "root_ca.crt")
-        self.step_config_file = os.path.join(self.step_home, ".step", "config", "ca.json")
+        self._step = module.get_bin_path("step-cli", True)
+        self.step_root_cert = os.path.join(
+            self.step_home, ".step", "certs", "root_ca.crt"
+        )
+        self.step_config_file = os.path.join(
+            self.step_home, ".step", "config", "ca.json"
+        )
 
     def run(self):
-        """
-        """
+        """ """
         result = dict(
             failed=False,
             changed=False,
@@ -88,8 +310,7 @@ class StepCA():
         return result
 
     def cleanFiles(self):
-        """
-        """
+        """ """
         path = os.path.join(self.step_home, ".step")
         if os.path.exists(path):
             shutil.rmtree(path)
@@ -108,12 +329,10 @@ class StepCA():
 
         pwd_file = os.path.join(self.step_home, self.step_password_file)
 
-        if os.path.exists(self.step_root_cert) and os.path.exists(self.step_config_file):
-            return dict(
-                failed=False,
-                changed=False,
-                msg="CA is already created."
-            )
+        if os.path.exists(self.step_root_cert) and os.path.exists(
+            self.step_config_file
+        ):
+            return dict(failed=False, changed=False, msg="CA is already created.")
 
         args = []
         args.append(self._step)
@@ -139,22 +358,21 @@ class StepCA():
 
         rc, out, err = self._exec(args)
 
-        result['result'] = f"{out.rstrip()}"
+        result["result"] = f"{out.rstrip()}"
 
         if rc == 0:
-            result['changed'] = True
-            result['stdout'] = out
-            result['cmd'] = args
+            result["changed"] = True
+            result["stdout"] = out
+            result["cmd"] = args
         else:
-            result['failed'] = True
-            result['stderr'] = err
-            result['cmd'] = args
+            result["failed"] = True
+            result["stderr"] = err
+            result["cmd"] = args
 
         return result
 
     def updateAuthorityClaims(self, result):
-        """
-        """
+        """ """
         self.module.log(msg=f"updateAuthorityClaims({result})")
         self.module.log(msg=f"  - {self.step_config_file}")
 
@@ -185,7 +403,9 @@ class StepCA():
             ssh_duration_user_max = ssh_duration_user.get("max", None)
 
             disable_renewal = self.step_config.get("disable_renewal", None)
-            allow_renewal_after_expiry = self.step_config.get("allow_renewal_after_expiry", None)
+            allow_renewal_after_expiry = self.step_config.get(
+                "allow_renewal_after_expiry", None
+            )
 
             if tls_duration_default:
                 claims["defaultTLSCertDuration"] = tls_duration_default
@@ -245,7 +465,7 @@ class StepCA():
 
                 ca_data["authority"].update(needed_claims)
 
-                with open(self.step_config_file, "w", encoding='utf-8') as f:
+                with open(self.step_config_file, "w", encoding="utf-8") as f:
                     json.dump(ca_data, f, ensure_ascii=False, indent=2)
 
                 result["changed"] = True
@@ -265,7 +485,9 @@ class StepCA():
 
         args = []
 
-        if os.path.exists(self.step_root_cert) and os.path.exists(self.step_config_file):
+        if os.path.exists(self.step_root_cert) and os.path.exists(
+            self.step_config_file
+        ):
 
             with open(self.step_config_file, "r") as f:
                 ca_data = json.load(f)
@@ -277,7 +499,7 @@ class StepCA():
                     return dict(
                         failed=False,
                         changed=False,
-                        msg="acme provisioner already created."
+                        msg="acme provisioner already created.",
                     )
 
             args.append(self._step)
@@ -294,18 +516,17 @@ class StepCA():
 
         rc, out, _ = self._exec(args)
 
-        result['result'] = f"{out.rstrip()}"
+        result["result"] = f"{out.rstrip()}"
 
         if rc == 0:
-            result['changed'] = True
+            result["changed"] = True
         else:
-            result['failed'] = True
+            result["failed"] = True
 
         return result
 
     def _exec(self, commands):
-        """
-        """
+        """ """
         # self.module.log(msg=f"  commands: '{commands}'")
         rc, out, err = self.module.run_command(commands, check_rc=False)
 
@@ -322,45 +543,14 @@ class StepCA():
 def main():
 
     args = dict(
-        state=dict(
-            default="init",
-            choices=[
-                "init",
-                "add-acme-provisioner"
-            ]
-        ),
-        force=dict(
-            required=False,
-            default=False,
-            type='bool'
-        ),
-        home=dict(
-            required=True,
-            type="str"
-        ),
-        name=dict(
-            required=False,
-            type="str"
-        ),
-        password_file=dict(
-            required=False,
-            default="password",
-            type="str"
-        ),
-        dns=dict(
-            required=False,
-            type="list"
-        ),
-        with_provisioners=dict(
-            required=False,
-            type="list",
-            default=[]
-        ),
-        config=dict(
-            required=False,
-            type="dict",
-            default={}
-        )
+        state=dict(default="init", choices=["init", "add-acme-provisioner"]),
+        force=dict(required=False, default=False, type="bool"),
+        home=dict(required=True, type="str"),
+        name=dict(required=False, type="str"),
+        password_file=dict(required=False, default="password", type="str"),
+        dns=dict(required=False, type="list"),
+        with_provisioners=dict(required=False, type="list", default=[]),
+        config=dict(required=False, type="dict", default={}),
     )
 
     module = AnsibleModule(
@@ -377,7 +567,7 @@ def main():
 
 
 # import module snippets
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
 
 
