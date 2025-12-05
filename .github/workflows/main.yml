@@ -63,6 +63,7 @@ jobs:
           - step_ca
           - snakeoil
           - certbot
+          - lego
 
     steps:
       - name: check out the codebase.
