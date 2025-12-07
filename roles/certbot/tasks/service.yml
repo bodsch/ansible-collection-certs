@@ -2,6 +2,7 @@
 
 - name: disable original systemd units
   when:
+    - not running_in_check_mode
     - ansible_facts.service_mgr == 'systemd'
   block:
     - name: create dropin directory
@@ -22,15 +23,23 @@
       notify:
         - daemon reload
 
-    - name: disable original certbot.service
+    - name: mask original certbot.service
       ansible.builtin.service:
         name: certbot.service
-        enabled: false
-      failed_when: false
+        masked: true
+      notify:
+        - daemon reload
+      register: certbot_status
 
     - name: disable original certbot.timer
       ansible.builtin.service:
         name: certbot.timer
         enabled: false
       failed_when: false
+      notify:
+        - daemon reload
+
+    - name: flush handlers
+      ansible.builtin.meta: flush_handlers
+
 ...

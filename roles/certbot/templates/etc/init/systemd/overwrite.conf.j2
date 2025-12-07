@@ -6,6 +6,8 @@ Description       = Certbot (disabled, use certbot-renew as replacement)
 Documentation     = file:///usr/share/doc/python-certbot-doc/html/index.html
 Documentation     = https://certbot.eff.org/docs
 
+## ConditionPathExists = /lib/systemd/system/certbot-renew.service
+
 [Service]
 Type              = oneshot
 ExecStart         = /bin/true

@@ -1,5 +1,19 @@
 ---
 
+- name: detect if certbot installed
+  ansible.builtin.stat:
+    path: /usr/bin/certbot
+    get_checksum: false
+    get_mime: false
+  register: certbot_binary_file
+
+- name: define certbot_installed if certbot installed
+  ansible.builtin.set_fact:
+    certbot_installed: "{{ certbot_binary_file.stat.exists }}"
+  when:
+    - certbot_binary_file is defined
+    - certbot_binary_file.stat is defined
+
 - name: create policy-rc.d
   ansible.builtin.copy:
     dest: /usr/sbin/policy-rc.d
