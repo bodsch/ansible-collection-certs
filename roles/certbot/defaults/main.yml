@@ -51,6 +51,7 @@ certbot_cron:
   enabled: true       # [true, false]
   minute: "58"        # 58
   hour: "2"           # 2
-  weekday: "Mon"      # *
+  weekday:
+    - "Mon"           # ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 ...

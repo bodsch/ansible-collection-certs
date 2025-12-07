@@ -123,12 +123,50 @@
             - daemon reload
 
         - name: create systemd timer file
-          ansible.builtin.template:
-            src: etc/init/systemd/certbot-renew.timer.j2
-            dest: "{{ systemd_lib_directory }}/certbot-renew.timer"
-            mode: "0644"
+          bodsch.systemd.systemd_timer:
+            name: certbot-renew
+            unit:
+              Description: Run Certbot on specific weekdays
+            timer:
+              persistent: true
+              randomized_delay_sec: "43200"
+            schedule:
+              weekday: "{{ certbot_cron.weekday | default(['Sat']) }}"
+              hour: "{{ certbot_cron.hour | default('2') }}"
+              minute: "{{ certbot_cron.minute | default('58') }}"
+            install:
+              wanted_by: timers.target
+            path: "{{ systemd_lib_directory }}"
           notify:
             - daemon reload
+
+            # name: certbot
+            # description: "run Certbot"
+            # on_calendar_spec:
+            #   weekday: "*"
+            #   year: "*"
+            #   month: "*"
+            #   day: "*"
+            #   hour:
+            #     - "2"
+            #   minute: 58
+            #   second: 0
+            # timer_options:
+            #   persistent: true
+            #   randomized_delay_sec: "12h"
+            # install_options:
+            #   wanted_by: "timers.target"
+            # enabled: true
+            # state: present
+            # timer_state: started
+
+        # - name: create systemd timer file
+        #   ansible.builtin.template:
+        #     src: etc/init/systemd/certbot-renew.timer.j2
+        #     dest: "{{ systemd_lib_directory }}/certbot-renew.timer"
+        #     mode: "0644"
+        #   notify:
+        #     - daemon reload
 
         - name: flush handlers
           ansible.builtin.meta: flush_handlers
