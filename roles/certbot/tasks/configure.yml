@@ -93,7 +93,7 @@
     - certbot_tls_certificates | count > 0
   ignore_errors: true
 
-- name: d
+- name: show errors at new certificates
   ansible.builtin.debug:
     msg: "{{ create_certificates }}"
   when:
