@@ -91,29 +91,6 @@
         - certbot_cron.enabled | default('false') | bool
         - certbot_cron.type | default('cron') | string == "systemd"
       block:
-        # - name: create certbot-renew run configuration
-        #   ansible.builtin.template:
-        #     src: etc/default/certbot-renew.j2
-        #     dest: "{{ certbot_defaults_directory }}/certbot-renew"
-        #     force: true
-        #     owner: root
-        #     group: root
-        #     mode: "0640"
-
-        # - name: disable original certbot.service
-        #   ansible.builtin.service:
-        #     name: certbot.service
-        #     enabled: false
-        #     # state: stopped
-        #   failed_when: false
-        #
-        # - name: disable original certbot.timer
-        #   ansible.builtin.service:
-        #     name: certbot.timer
-        #     enabled: false
-        #     # state: stopped
-        #   failed_when: false
-
         - name: create systemd unit file
           ansible.builtin.template:
             src: etc/init/systemd/certbot-renew.service.j2
@@ -139,34 +116,6 @@
             path: "{{ systemd_lib_directory }}"
           notify:
             - daemon reload
-
-            # name: certbot
-            # description: "run Certbot"
-            # on_calendar_spec:
-            #   weekday: "*"
-            #   year: "*"
-            #   month: "*"
-            #   day: "*"
-            #   hour:
-            #     - "2"
-            #   minute: 58
-            #   second: 0
-            # timer_options:
-            #   persistent: true
-            #   randomized_delay_sec: "12h"
-            # install_options:
-            #   wanted_by: "timers.target"
-            # enabled: true
-            # state: present
-            # timer_state: started
-
-        # - name: create systemd timer file
-        #   ansible.builtin.template:
-        #     src: etc/init/systemd/certbot-renew.timer.j2
-        #     dest: "{{ systemd_lib_directory }}/certbot-renew.timer"
-        #     mode: "0644"
-        #   notify:
-        #     - daemon reload
 
         - name: flush handlers
           ansible.builtin.meta: flush_handlers
