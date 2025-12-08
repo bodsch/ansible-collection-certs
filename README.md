@@ -46,9 +46,12 @@ pacman -S python-dateutil
 
 | Name                      | Description |
 |:--------------------------|:----|
-
-
-
+| [bodsch.certs.certbot](./plugins/modules/certbot.py)                         | Creates a certificate using Let's Encrypt Certbot |
+| [bodsch.certs.domain_certs](./plugins/modules/domain_certs.py)               | Check presence of certificate files created by Let's Encrypt certbot |
+| [bodsch.certs.domain_config_files](./plugins/modules/domain_config_files.py) | Manage YAML configuration files with domain lists |
+| [bodsch.certs.snakeoil_date](./plugins/modules/snakeoil_date.py)             | Read expiration date of a snakeoil certificate |
+| [bodsch.certs.snakeoil_openssl](./plugins/modules/snakeoil_openssl.py)       | Create snakeoil certificates and DH parameters with OpenSSL |
+| [bodsch.certs.step_ca](./plugins/modules/step_ca.py)                         | Manage a local smallstep step-ca authority |
 
 
 ## Contribution
