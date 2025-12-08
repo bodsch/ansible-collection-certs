@@ -208,7 +208,7 @@ class SnakeoilDate(object):
             )
             date_pattern = re.search(pattern, date_not_after)
 
-            self.module.log(msg=f"  - date_pattern: '{date_pattern}'")
+            # self.module.log(msg=f"  - date_pattern: '{date_pattern}'")
 
             if date_pattern:
                 """ """
@@ -244,17 +244,6 @@ class SnakeoilDate(object):
             self.module.fail_json(msg)
 
         if data:
-
-            # if CertificateInfoRetrieval:
-            #     self.module.log("  ->  CertificateInfoRetrieval")
-            #     cert_info = CertificateInfoRetrieval(module=self.module, content=data)
-            #     info = cert_info.get_info(prefer_one_fingerprint=False)
-            # else:
-            #     self.module.log("  ->  get_certificate_info")
-            #     info = get_certificate_info(
-            #         module=self.module, backend="cryptography", content=data
-            #     )
-
             cert_info = CertificateInfoRetrieval(module=self.module, content=data)
             info = cert_info.get_info(prefer_one_fingerprint=False)
 
@@ -263,9 +252,6 @@ class SnakeoilDate(object):
             # self.module.log(msg=f"  - date_not_after : '{info.get('not_after')}'")
             # self.module.log(msg=f"  - expired        : '{info.get('expired')}'")
 
-            # date_not_before = get_relative_time_option(
-            #     info.get("not_before"), input_name="not_before"
-            # )
             date_not_after = get_relative_time_option(
                 info.get("not_after"), input_name="not_after"
             )
@@ -291,8 +277,8 @@ class SnakeoilDate(object):
 
             _cert_date = _cert_date.strftime(self.pattern)
 
-            self.module.log(msg=f"expire_date  '{_cert_date}'")
-            self.module.log(msg=f"diff days    '{diff_days}'")
+            # self.module.log(msg=f"expire_date  '{_cert_date}'")
+            # self.module.log(msg=f"diff days    '{diff_days}'")
 
             result = dict(
                 failed=False, changed=False, expire_date=_cert_date, diff_days=diff_days
@@ -320,13 +306,13 @@ class SnakeoilDate(object):
 
     def _exec(self, args):
         """ """
-        self.module.log(msg="args: {}".format(args))
-
         rc, out, err = self.module.run_command(args, check_rc=False)
         # self.module.log(msg=f"  rc : '{rc}'")
-        # self.module.log(msg=f"  out: '{str(out)}'")
-        # self.module.log(msg=f"  err: '{err}'")
-        return rc, out, err
+        if rc != 0:
+            self.module.log(msg=f"  out: '{str(out)}'")
+            self.module.log(msg=f"  err: '{str(err)}'")
+
+        return (rc, out, err)
 
 
 # ===========================================
@@ -336,19 +322,21 @@ class SnakeoilDate(object):
 
 def main():
     """ """
+    args = dict(
+        snakeoil_directory=dict(required=True, type="path"),
+        snakeoil_domain=dict(required=True, type="path"),
+        pattern=dict(type="str", default="%Y-%m-%dT%H:%M:%S"),
+    )
+
     module = AnsibleModule(
-        argument_spec=dict(
-            snakeoil_directory=dict(required=True, type="path"),
-            snakeoil_domain=dict(required=True, type="path"),
-            pattern=dict(type="str", default="%Y-%m-%dT%H:%M:%S"),
-        ),
+        argument_spec=args,
         supports_check_mode=False,
     )
 
-    icingacli = SnakeoilDate(module)
-    result = icingacli.run()
+    d = SnakeoilDate(module)
+    result = d.run()
 
-    module.log(msg=f"= result : '{result}'")
+    # module.log(msg=f"= result : '{result}'")
 
     module.exit_json(**result)
 

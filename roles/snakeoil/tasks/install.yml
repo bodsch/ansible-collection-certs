@@ -1,28 +1,5 @@
 ---
 
-- name: check for archive {{ snakeoil_domain }}_{{ current_date }}.tgz on ansible controller
-  delegate_to: localhost
-  become: false
-  run_once: true
-  ansible.builtin.stat:
-    path: "{{ snakeoil_local_tmp_directory }}/{{ snakeoil_domain }}_{{ current_date }}.tgz"
-  register: _certificate_archive_local
-
-- name: define checksum for {{ snakeoil_domain }} on ansible controller
-  delegate_to: localhost
-  become: false
-  run_once: true
-  ansible.builtin.stat:
-    path: "{{ snakeoil_local_tmp_directory }}/{{ snakeoil_domain }}_{{ current_date }}.tgz"
-    get_checksum: false
-    get_mime: false
-    get_attributes: false
-  register: _certificate_archive_checksum_local
-  when:
-    - _certificate_archive_local is defined
-    - _certificate_archive_local.stat is defined
-    - _certificate_archive_local.stat.exists | default('true')
-
 - name: check for archive {{ snakeoil_domain }}_{{ current_date }}.tgz on destination
   ansible.builtin.stat:
     path: "{{ snakeoil_remote_tmp_directory }}/{{ snakeoil_domain }}_{{ current_date }}.tgz"
@@ -31,7 +8,7 @@
 - name: define checksum for {{ snakeoil_domain }} on destination
   ansible.builtin.stat:
     path: "{{ snakeoil_remote_tmp_directory }}/{{ snakeoil_domain }}_{{ current_date }}.tgz"
-    get_checksum: false
+    get_checksum: true
     get_mime: false
     get_attributes: false
   register: _certificate_archive_checksum_remote
@@ -40,9 +17,17 @@
     - _certificate_archive_remote.stat is defined
     - _certificate_archive_remote.stat.exists | default('true')
 
+- name: checkusm local
+  debug:
+    msg: "{{ _certificate_archive_checksum_local.stat | default('+') }}"
+
+- name: checksum remote
+  debug:
+    msg: "{{ _certificate_archive_checksum_remote.stat | default('-') }}"
+
 - name: set facts
   ansible.builtin.set_fact:
-    snakeoil_certificate_archive_checksum_local: "{{ _certificate_archive_checksum_local.stat.checksum | default('+') }}"
+    # snakeoil_certificate_archive_checksum_local: "{{ _certificate_archive_checksum_local.stat.checksum | default('+') }}"
     snakeoil_certificate_archive_checksum_remote: "{{ _certificate_archive_checksum_remote.stat.checksum | default('-') }}"
 
 - name: transfer certificate to destination instance
@@ -54,6 +39,7 @@
       not _certificate_archive_remote.stat.exists | default('false') or
       snakeoil_certificate_archive_checksum_local != snakeoil_certificate_archive_checksum_remote
   block:
+
     - name: propagate {{ snakeoil_domain }}_{{ current_date }}.tgz
       become: true
       ansible.builtin.copy:

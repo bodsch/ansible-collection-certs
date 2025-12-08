@@ -15,7 +15,7 @@
     - name: define checksum for {{ snakeoil_domain }} on ansible controller
       ansible.builtin.stat:
         path: "{{ snakeoil_local_tmp_directory }}/{{ snakeoil_domain }}_{{ current_date }}.tgz"
-        get_checksum: false
+        get_checksum: true
         get_mime: false
         get_attributes: false
       register: _certificate_archive_checksum_local
@@ -24,16 +24,16 @@
         - _certificate_archive_local.stat is defined
         - _certificate_archive_local.stat.exists | default('true')
 
-    - name: set facts
-      ansible.builtin.set_fact:
-        snakeoil_certificate_archive_checksum_local: "{{ _certificate_archive_checksum_local.stat.checksum | default('+') }}"
-
     - name: create archive
-      when:
-        - snakeoil_certificate_archive_checksum_local != snakeoil_certificate_archive_checksum_remote
+      #when:
+      #  - snakeoil_certificate_archive_checksum_local != snakeoil_certificate_archive_checksum_remote
       block:
-        - name: compress directory for {{ snakeoil_domain }}
+        - name: "compress directory for '{{ snakeoil_domain }}'"
           community.general.archive:
             path: "{{ snakeoil_local_tmp_directory }}/{{ snakeoil_domain }}"
             dest: "{{ snakeoil_local_tmp_directory }}/{{ snakeoil_domain }}_{{ current_date }}.tgz"
-            mode: "0600"
+            # mode: "0600"
+
+    - name: set facts
+      ansible.builtin.set_fact:
+        snakeoil_certificate_archive_checksum_local: "{{ _certificate_archive_checksum_local.stat.checksum | default('+') }}"
