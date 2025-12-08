@@ -18,6 +18,15 @@ Tested on
 
 ## Requirements & Dependencies
 
+- python module: dateutil
+
+```bash
+apt-get install -y python3-dateutil
+
+
+pacman -S python-dateutil
+```
+
 ## Included content
 
 
