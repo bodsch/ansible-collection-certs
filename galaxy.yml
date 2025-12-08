@@ -16,7 +16,12 @@ license:
 
 license_file: ''
 
-tags: []
+tags:
+  - security
+  - certificates
+  - ssl
+  - tls
+  - ca
 
 dependencies:
  ansible.utils: "*"
@@ -39,3 +44,4 @@ build_ignore:
   - ".gitignore"
   - ".yamllint"
   - ".github"
+  - ".config"
