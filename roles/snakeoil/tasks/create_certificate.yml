@@ -41,7 +41,7 @@
       when:
         - snakeoil_expire_diff_days | int != 0
 
-- name: remove '{{ snakeoil_local_tmp_directory }}/{{ snakeoil_domain }}' when expires days lower as 10 days or dhparam size not {{ snakeoil_dhparam }}
+- name: "remove '{{ snakeoil_local_tmp_directory }}/{{ snakeoil_domain }}' when expires days lower as 10 days or dhparam size not {{ snakeoil_dhparam }}"
   delegate_to: localhost
   become: false
   run_once: true
@@ -96,5 +96,15 @@
         directory: "{{ snakeoil_local_tmp_directory }}"
         domain: "{{ snakeoil_domain }}"
         dhparam: "{{ snakeoil_dhparam | int }}"
+
+  rescue:
+    - name: "remove directory '{{ snakeoil_local_tmp_directory }}/{{ snakeoil_domain }}'"
+      ansible.builtin.file:
+        path: "{{ snakeoil_local_tmp_directory }}/{{ snakeoil_domain }}"
+        state: absent
+
+    - name: exit with fail
+      ansible.builtin.fail:
+        msg: Sorry, but a serious error occurred when creating the certificate.
 
 ...

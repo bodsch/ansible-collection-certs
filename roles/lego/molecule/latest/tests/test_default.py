@@ -113,7 +113,7 @@ def get_vars(host):
 
 def local_facts(host):
     """
-      return local facts
+    return local facts
     """
     local_fact = host.ansible("setup").get("ansible_facts").get("ansible_local")
 
@@ -144,8 +144,7 @@ def test_files(host, get_vars):
 
 
 def test_version(host, get_vars):
-    """
-    """
+    """ """
     distribution = host.system_info.distribution
     release = host.system_info.release
 
@@ -156,8 +155,8 @@ def test_version(host, get_vars):
 
     install_dir = get_vars.get("lego_install_path")
 
-    if 'latest' in install_dir:
-        install_dir = install_dir.replace('latest', version)
+    if "latest" in install_dir:
+        install_dir = install_dir.replace("latest", version)
 
     files = []
     files.append("/usr/bin/lego")
@@ -173,8 +172,7 @@ def test_version(host, get_vars):
 
 
 def test_user(host, get_vars):
-    """
-    """
+    """ """
     user = get_vars.get("lego_system_user", "lego")
     group = get_vars.get("lego_system_group", "lego")
 

@@ -66,25 +66,4 @@
   when:
     - snakeoil_force
 
-- name: check for archive {{ snakeoil_domain }}_{{ current_date }}.tgz on destination
-  ansible.builtin.stat:
-    path: "{{ snakeoil_remote_tmp_directory }}/{{ snakeoil_domain }}_{{ current_date }}.tgz"
-  register: _certificate_archive_remote
-
-- name: define checksum for {{ snakeoil_domain }} on destination
-  ansible.builtin.stat:
-    path: "{{ snakeoil_remote_tmp_directory }}/{{ snakeoil_domain }}_{{ current_date }}.tgz"
-    get_checksum: false
-    get_mime: false
-    get_attributes: false
-  register: _certificate_archive_checksum_remote
-  when:
-    - _certificate_archive_remote is defined
-    - _certificate_archive_remote.stat is defined
-    - _certificate_archive_remote.stat.exists | default('true')
-
-- name: set facts
-  ansible.builtin.set_fact:
-    snakeoil_certificate_archive_checksum_remote: "{{ _certificate_archive_checksum_remote.stat.checksum | default('-') }}"
-
 ...

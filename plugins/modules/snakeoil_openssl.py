@@ -154,9 +154,7 @@ size:
 
 
 class SnakeoilOpenssl(object):
-    """
-    Main Class
-    """
+    """ """
 
     module = None
 
@@ -188,6 +186,12 @@ class SnakeoilOpenssl(object):
         #     )
         #
         # os.chdir(base_directory)
+
+        error, msg = self._base_directory()
+
+        if error:
+            return dict(failed=True, changed=False, msg=msg)
+
         _ssl_args = []
 
         csr_file = os.path.join(self.directory, self.domain, f"{self.domain}.csr")
@@ -211,10 +215,10 @@ class SnakeoilOpenssl(object):
             _ssl_args.append("-config")
             _ssl_args.append(self.openssl_config)
 
-            error, msg = self._base_directory()
-
-            if error:
-                return dict(failed=True, changed=False, msg=msg)
+            # error, msg = self._base_directory()
+            #
+            # if error:
+            #     return dict(failed=True, changed=False, msg=msg)
 
             rc, out, err = self._exec(_ssl_args)
 
@@ -237,10 +241,10 @@ class SnakeoilOpenssl(object):
             _ssl_args.append("-days")
             _ssl_args.append(str(self.cert_life_time))
 
-            error, msg = self._base_directory()
-
-            if error:
-                return dict(failed=True, changed=False, msg=msg)
+            # error, msg = self._base_directory()
+            #
+            # if error:
+            #     return dict(failed=True, changed=False, msg=msg)
 
             rc, out, err = self._exec(_ssl_args)
 
@@ -262,10 +266,10 @@ class SnakeoilOpenssl(object):
             _ssl_args.append(dh_file)
             _ssl_args.append(str(self.dhparam))
 
-            error, msg = self._base_directory()
-
-            if error:
-                return dict(failed=True, changed=False, msg=msg)
+            # error, msg = self._base_directory()
+            #
+            # if error:
+            #     return dict(failed=True, changed=False, msg=msg)
 
             rc, out, err = self._exec(_ssl_args)
 
@@ -278,10 +282,10 @@ class SnakeoilOpenssl(object):
             _ssl_args.append(dh_file)
             _ssl_args.append("-text")
 
-            error, msg = self._base_directory()
-
-            if error:
-                return dict(failed=False, changed=False, size=int(0))
+            # error, msg = self._base_directory()
+            #
+            # if error:
+            #     return dict(failed=False, changed=False, size=int(0))
 
             rc, out, err = self._exec(_ssl_args)
 
@@ -315,15 +319,13 @@ class SnakeoilOpenssl(object):
 
     def _exec(self, args):
         """ """
-        self.module.log(msg="args: {}".format(args))
-
         rc, out, err = self.module.run_command(args, check_rc=True)
-        self.module.log(msg="  rc : '{}'".format(rc))
+        # self.module.log(msg=f"  rc : '{rc}'")
         if rc != 0:
-            self.module.log(msg="  out: '{}'".format(str(out)))
-            self.module.log(msg="  err: '{}'".format(err))
+            self.module.log(msg=f"  out: '{str(out)}'")
+            self.module.log(msg=f"  err: '{str(err)}'")
 
-        return rc, out, err
+        return (rc, out, err)
 
 
 # ===========================================
@@ -351,7 +353,7 @@ def main():
     openssl = SnakeoilOpenssl(module)
     result = openssl.run()
 
-    module.log(msg=f"= result : '{result}'")
+    # module.log(msg=f"= result : '{result}'")
 
     module.exit_json(**result)
 
