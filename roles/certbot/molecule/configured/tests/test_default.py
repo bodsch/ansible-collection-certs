@@ -130,13 +130,21 @@ def test_directories(host, dirs):
 @pytest.mark.parametrize(
     "files",
     [
-        "/etc/systemd/system/certbot.service",
         "/etc/systemd/system/certbot.timer",
     ],
 )
 def test_no_files(host, files):
     f = host.file(files)
     assert not f.exists
+
+
+def test_masked_service(host):
+
+    systemd_unit = "/etc/systemd/system/certbot.service"
+    systemd = host.file(systemd_unit)
+
+    assert systemd.is_symlink
+    assert systemd.linked_to == "/dev/null"
 
 
 @pytest.mark.parametrize(
