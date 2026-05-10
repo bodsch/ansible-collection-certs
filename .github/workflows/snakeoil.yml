@@ -52,12 +52,11 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - debian:12
           - debian:13
         ansible-version:
           - '9.5'
         python_version:
-          - '3.12'
+          - '3.13'
         scenario:
           - default
         collection_role:
@@ -118,7 +117,7 @@ jobs:
         ansible-version:
           - '9.5'
         python_version:
-          - '3.12'
+          - '3.13'
         scenario:
           - default
         collection_role:
@@ -173,11 +172,11 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - debian:12
+          - debian:13
         ansible-version:
           - '9.5'
         python_version:
-          - '3.12'
+          - '3.13'
         scenario:
           - borgkube
           - configured

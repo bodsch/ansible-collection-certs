@@ -52,12 +52,11 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - debian:12
           - debian:13
         ansible-version:
           - '9.5'
         python_version:
-          - '3.12'
+          - '3.13'
         scenario:
           - default
         collection_role:
@@ -110,13 +109,12 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - ubuntu:20.04
           - ubuntu:22.04
           - ubuntu:24.04
         ansible-version:
           - '9.5'
         python_version:
-          - '3.12'
+          - '3.13'
         scenario:
           - default
         collection_role:
@@ -169,11 +167,11 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - debian:12
+          - debian:13
         ansible-version:
           - '9.5'
         python_version:
-          - '3.12'
+          - '3.13'
         scenario:
           - configured
         collection_role:

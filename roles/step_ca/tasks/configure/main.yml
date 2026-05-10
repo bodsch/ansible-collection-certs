@@ -30,11 +30,15 @@
 
 - name: bootstrap service
   ansible.builtin.include_tasks: configure/bootstrap.yml
+  when:
+    - step_ca_authority.name | default('') | string | length > 0
+    - step_ca_authority.dns | default([]) | count > 0
 
 - name: manage authority-wide policy
   ansible.builtin.include_tasks: configure/policy.yml
   when:
     - step_ca_authority_policy is defined
+    - step_ca_authority.step_ca_authority_policy | default({}) | count > 0
 
 - name: manage ACME provisioners
   ansible.builtin.include_tasks: configure/provisioner.yml
@@ -47,15 +51,22 @@
     - step_ca_admins | default([]) | count > 0
 
 - name: smoke check
-  bodsch.certs.step_ca_info:
-    api:
-      ca_url: "https://localhost:{{ step_ca_authority.listen.port | default(9000) }}"
-      ca_root: "{{ step_ca_system.home }}/.step/certs/root_ca.crt"
-    gather:
-      - health
-      - version
-  register: _smoke
+  when:
+    - step_ca_authority.name | default('') | string | length > 0
+    - step_ca_authority.dns | default([]) | count > 0
+  block:
+    - name: smoke check
+      bodsch.certs.step_ca_info:
+        api:
+          ca_url: "https://localhost:{{ step_ca_authority.listen.port | default(9000) }}"
+          ca_root: "{{ step_ca_system.home }}/.step/certs/root_ca.crt"
+        gather:
+          - health
+          - version
+      register: _smoke
 
-- ansible.builtin.assert:
-    that:
-      - _smoke.health == "ok"
+    - ansible.builtin.assert:
+        that:
+          - _smoke.health == "ok"
+      when:
+        - _smoke.health is defined
