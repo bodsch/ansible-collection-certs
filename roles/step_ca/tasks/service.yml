@@ -1,11 +1,14 @@
 ---
 
 - name: start and enable the step-ca service
-  service:
+  when:
+    - step_ca_authority.name | default('') | string | length > 0
+    - step_ca_authority.dns | default([]) | count > 0
+  ansible.builtin.service:
     name: step-ca
     state: "{{ step_ca_service.state }}"
     enabled: "{{ step_ca_service.enabled }}"
   tags:
-    - service
+    - step_ca_service
 
 ...
