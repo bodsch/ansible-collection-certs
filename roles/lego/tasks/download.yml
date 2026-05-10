@@ -28,7 +28,7 @@
 
 - name: define delegate instance for download handling
   ansible.builtin.set_fact:
-    lego_delegate_to: "{{ ansible_host }}"
+    lego_delegate_to: "{{ ansible_facts.host }}"
     lego_local_tmp_directory: "{{
         lookup('env', 'CUSTOM_LOCAL_TMP_DIRECTORY') |
         default('/var/cache/ansible/lego', true) }}/{{ lego_version }}"
@@ -71,7 +71,7 @@
             checksum_file: sha256sums.txt
             user: "{{ lookup('env', 'GH_USER') | default(omit) }}"
             password: "{{ lookup('env', 'GH_TOKEN') | default(omit) }}"
-            architecture: "{{ ansible_architecture }}"
+            architecture: "{{ ansible_facts.architecture }}"
             system: "{{ ansible_facts.system }}"
             version: "v{{ lego_version }}"
           register: _latest_checksum
@@ -92,7 +92,7 @@
         url: "{{ lego_release.download_url }}/download/v{{ lego_version }}/{{ lego_release.file }}"
         dest: "{{ lego_local_tmp_directory }}/{{ lego_release.file }}"
         checksum: "{{ __lego_checksum | default(omit) }}"
-        mode: 0660
+        mode: "0660"
       register: _download_archive
       until: _download_archive is succeeded
       retries: 5

@@ -3,11 +3,23 @@
 
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
+"""
+Idempotent management of step-ca's authority-wide issuance policy.
+
+Per-provisioner and per-ACME-account policies are listed in step-ca's
+proto schema but their endpoints respond with "disabled in standalone"
+on open-source step-ca — they require Smallstep Certificate Manager.
+This module therefore restricts itself to authority scope.
+
+The user-facing schema uses snake_case top-level keys (closer to
+Ansible conventions); the module translates them to the camelCase
+shape step-ca's protojson handlers expect on the wire.
+"""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-import json
 import os
 from urllib.parse import urlparse
 
@@ -23,38 +35,37 @@ from ansible_collections.bodsch.certs.plugins.module_utils.step_ca.exceptions im
 DOCUMENTATION = r"""
 ---
 module: step_ca_policy
-version_added: "1.3.0"
-short_description: Manage X.509 / SSH issuance policies on step-ca
+version_added: "1.2.0"
+short_description: Manage the authority-wide X.509 / SSH issuance policy on step-ca
 author:
   - "Bodo Schulz (@bodsch) <bodo@boone-schulz.de>"
 description:
-  - Manages issuance policies on a running step-ca instance.
+  - Manages the authority-wide issuance policy on a running step-ca instance.
   - Policies restrict which subject identifiers (DNS names, IPs, emails, URIs,
-    Common Names, principals) a CA or provisioner may sign.
-  - Policies can be applied at two scopes:
-      C(authority) — the CA-wide default that applies to every provisioner
-      that does not carry its own policy;
-      C(provisioner) — overrides the authority-wide default for one provisioner.
-  - Per-account ACME policies (Certificate Manager only) are not supported.
+    Common Names, principals) the CA may sign.
+  - Per-provisioner and per-ACME-account policies are gated behind Smallstep
+    Certificate Manager (the corresponding endpoints respond with
+    "disabled in standalone" on open-source step-ca) and are therefore
+    not exposed by this module.
   - Communicates exclusively over the step-ca Admin HTTPS API.
 options:
   state:
     description:
-      - C(present) ensures the policy matches the C(policy) parameter.
-      - C(absent) removes the policy entirely. The CA or provisioner then
-        falls back to its respective default (no restriction at authority
-        level, authority policy at provisioner level).
+      - C(present) ensures the authority policy matches the C(policy)
+        parameter.
+      - C(absent) removes the authority policy entirely; the CA falls
+        back to "no restriction".
     type: str
     choices: [present, absent]
     default: present
   scope:
-    description: Which policy to manage.
+    description:
+      - Scope of the policy. Currently fixed to C(authority); included
+        for forward compatibility with future Certificate-Manager-only
+        scopes.
     type: str
-    choices: [authority, provisioner]
-    required: true
-  provisioner:
-    description: Provisioner name. Required when C(scope=provisioner).
-    type: str
+    choices: [authority]
+    default: authority
   api:
     description: Connection parameters for the step-ca Admin API.
     type: dict
@@ -90,11 +101,10 @@ options:
       - Empty / unset lists are equivalent to "no rule of that kind".
     type: dict
 notes:
-  - Per-provisioner policies are stored inside the provisioner object on
-    the server. Setting them via this module updates the provisioner
-    record. Do not use the deprecated C(policy) pass-through of the
-    C(step_ca_provisioner) module in the same role; this module is the
-    canonical place.
+  - step-ca rejects a policy update that would lock out the admin
+    subject this module is using to authenticate (default C(step)).
+    Make sure the admin subject is in C(x509.allow.dns) when shipping
+    a restrictive policy.
 """
 
 EXAMPLES = r"""
@@ -105,34 +115,15 @@ EXAMPLES = r"""
     policy:
       x509:
         allow:
-          dns: ["*.lab.local", "lab.local"]
+          # Include the admin subject ('step') here to avoid the lock-out check.
+          dns: ["*.lab.local", "lab.local", "step"]
           ips: ["10.42.0.0/16"]
         allow_wildcard_names: true
-    api: "{{ step_ca_admin_connection }}"
-
-- name: Tighter scope for the dns-only provisioner
-  bodsch.certs.step_ca_policy:
-    scope: provisioner
-    provisioner: acme-dns
-    state: present
-    policy:
-      x509:
-        allow:
-          dns: ["*.svc.lab.local"]
-        deny:
-          dns: ["admin.svc.lab.local"]
     api: "{{ step_ca_admin_connection }}"
 
 - name: Drop the authority-wide policy (back to "no restriction")
   bodsch.certs.step_ca_policy:
     scope: authority
-    state: absent
-    api: "{{ step_ca_admin_connection }}"
-
-- name: Drop policy on a specific provisioner (falls back to authority policy)
-  bodsch.certs.step_ca_policy:
-    scope: provisioner
-    provisioner: acme-dns
     state: absent
     api: "{{ step_ca_admin_connection }}"
 """
@@ -152,7 +143,7 @@ policy:
 
 # --------------------------------------------------------------- translation
 
-# x509 allow/deny block
+#: Snake_case key → camelCase wire-format key for x509 allow/deny blocks.
 _X509_KEY_MAP = {
     "dns": "dns",
     "ips": "ips",
@@ -162,8 +153,9 @@ _X509_KEY_MAP = {
     "principals": "principals",
 }
 
-# ssh allow/deny block (intersection of host/user; per-type filtering happens
-# on step-ca's side — invalid combos like ssh.user.dns are simply ignored)
+#: Snake_case key → camelCase wire-format key for ssh allow/deny blocks.
+#: Per-type filtering happens on step-ca's side — invalid combos like
+#: ``ssh.user.dns`` are simply ignored by the server.
 _SSH_KEY_MAP = {
     "dns": "dns",
     "ips": "ips",
@@ -173,7 +165,13 @@ _SSH_KEY_MAP = {
 
 
 def _translate_block(block, key_map):
-    """Translate one allow/deny block from snake_case to protojson camelCase."""
+    """
+    Translate one allow/deny block from snake_case to protojson camelCase.
+
+    Empty values (``None``, ``[]``, ``""``) are dropped — they would be
+    semantically equivalent to "no rule" and step-ca prefers them absent
+    so that idempotent comparison against the server's response works.
+    """
     out = {}
     for src, dst in key_map.items():
         value = block.get(src)
@@ -183,6 +181,7 @@ def _translate_block(block, key_map):
 
 
 def _translate_x509(x509):
+    """Translate the user's ``x509`` policy block to wire format."""
     out = {}
     for direction in ("allow", "deny"):
         block = x509.get(direction)
@@ -196,6 +195,7 @@ def _translate_x509(x509):
 
 
 def _translate_ssh(ssh):
+    """Translate the user's ``ssh`` policy block to wire format."""
     out = {}
     for cert_type in ("host", "user"):
         cert_block = ssh.get(cert_type)
@@ -214,7 +214,13 @@ def _translate_ssh(ssh):
 
 
 def translate_policy(user_policy):
-    """Translate the user-facing snake_case policy dict to step-ca's wire format."""
+    """
+    Translate the user-facing snake_case policy dict to step-ca's wire format.
+
+    :param user_policy: Dict as supplied by the module user. May be
+        ``None`` or empty, in which case an empty dict is returned.
+    :returns: Dict in the protojson wire shape, ready to be POST/PUT.
+    """
     out = {}
     if not user_policy:
         return out
@@ -265,6 +271,12 @@ def _normalize_for_compare(value):
 
 
 def policies_equal(a, b):
+    """
+    Compare two policies for semantic equality.
+
+    Differences in default-value omission and unsorted lists do not
+    register as a change — see :func:`_normalize_for_compare`.
+    """
     return _normalize_for_compare(a) == _normalize_for_compare(b)
 
 
@@ -272,9 +284,39 @@ def policies_equal(a, b):
 
 
 class StepCAPolicy:
-    """Manage authority-wide or provisioner-scoped issuance policies."""
+    """
+    Manage the authority-wide issuance policy on step-ca.
+
+    Operates on the ``/admin/policy`` endpoint:
+
+      * ``GET /admin/policy``    — current policy or 404.
+      * ``POST /admin/policy``   — create when none exists.
+      * ``PUT /admin/policy``    — update.
+      * ``DELETE /admin/policy`` — remove.
+
+    Provisioner-scope code paths exist below in :meth:`_run_provisioner` /
+    :meth:`_get_provisioner` but are unreachable in the current
+    implementation — :meth:`__init__` rejects ``scope=provisioner``
+    outright because the corresponding step-ca endpoint is gated behind
+    Certificate Manager. They are kept for the day this collection
+    grows hosted-mode support.
+
+    Lock-out protection
+        step-ca refuses a policy update that would exclude the admin
+        subject this module authenticates as (default ``step``). The
+        rejection comes back as a 4xx — there is no in-module check, we
+        rely on the server's safety net.
+    """
 
     def __init__(self, module):
+        """
+        :param module: The :class:`AnsibleModule` instance.
+
+        Rejects ``scope=provisioner`` early with a clear message,
+        before any network I/O. (The argument spec already restricts
+        the choice to ``authority``, but the check stays for the day
+        the choice list is widened.)
+        """
         self.module = module
         # self.module.log("StepCAPolicy::__init__()")
 
@@ -296,7 +338,12 @@ class StepCAPolicy:
         self.client = self._build_client(module.params["api"])
 
     def run(self):
-        """ """
+        """
+        Dispatch to the scope-appropriate handler.
+
+        Currently always lands in :meth:`_run_authority` since the
+        :meth:`__init__` guard rejects any other scope.
+        """
         # self.module.log("StepCAPolicy::run()")
 
         if self.scope == "authority":
@@ -306,7 +353,15 @@ class StepCAPolicy:
     # -------------------------------------------------------- authority scope
 
     def _run_authority(self):
-        """ """
+        """
+        Reconcile the authority-wide policy.
+
+        Flow:
+          * If state=absent: DELETE if a policy exists, else no-op.
+          * If state=present: GET the current policy, compare against the
+            translated user input, then POST (create) or PUT (update)
+            only if they differ.
+        """
         # self.module.log("StepCAPolicy::_run_authority()")
 
         existing = self._get_authority_policy()
@@ -319,7 +374,7 @@ class StepCAPolicy:
                 return dict(changed=False)
             if self.module.check_mode:
                 return dict(changed=True)
-            self.client.delete("/admin/policy")  # <-- war /admin/authority/policy
+            self.client.delete("/admin/policy")
             return dict(changed=True)
 
         if existing is not None and policies_equal(existing, desired):
@@ -329,17 +384,24 @@ class StepCAPolicy:
             return dict(changed=True, policy=desired)
 
         if existing is None:
-            result = self.client.post("/admin/policy", desired)  # <-- /admin/policy
+            result = self.client.post("/admin/policy", desired)
         else:
-            result = self.client.put("/admin/policy", desired)  # <-- /admin/policy
+            result = self.client.put("/admin/policy", desired)
         return dict(changed=True, policy=result or desired)
 
     def _get_authority_policy(self):
-        """ """
+        """
+        Fetch the current authority policy or return ``None``.
+
+        Tolerates two response shapes step-ca has been seen to use:
+        a bare policy dict (top-level ``x509`` / ``ssh`` keys) and a
+        wrapped form (``policy`` or ``authorityPolicy`` envelope).
+        404 is treated as "no policy configured".
+        """
         # self.module.log("StepCAPolicy::_get_authority_policy()")
 
         try:
-            data = self.client.get("/admin/policy")  # <-- /admin/policy
+            data = self.client.get("/admin/policy")
         except StepCAAPIError as exc:
             if exc.status_code == 404:
                 return None
@@ -352,9 +414,19 @@ class StepCAPolicy:
         return data or None
 
     # ----------------------------------------------------- provisioner scope
+    #
+    # The methods below are currently unreachable — :meth:`__init__` rejects
+    # ``scope=provisioner`` because the underlying step-ca endpoint is gated
+    # behind Certificate Manager. Kept for the day this collection grows
+    # hosted-mode support.
 
     def _run_provisioner(self):
-        """ """
+        """
+        Reconcile a per-provisioner policy by GET-then-PUT'ing the whole
+        provisioner record with the policy field replaced.
+
+        **Currently unreachable** — see class docstring.
+        """
         # self.module.log("StepCAPolicy::_run_provisioner()")
 
         existing_prov = self._get_provisioner()
@@ -390,7 +462,12 @@ class StepCAPolicy:
         return dict(changed=True, policy=(result or {}).get("policy", desired))
 
     def _get_provisioner(self):
-        """ """
+        """
+        Fetch a provisioner's full record by name, or return ``None``
+        on 404.
+
+        **Currently unreachable** — see class docstring.
+        """
         # self.module.log("StepCAPolicy::_get_provisioner()")
 
         try:
@@ -403,8 +480,14 @@ class StepCAPolicy:
     # ------------------------------------------------------------- api setup
 
     def _build_client(self, api_params):
-        """ """
-        self.module.log(f"StepCAPolicy::_build_client(api_params: {api_params})")
+        """
+        Construct a :class:`StepCAClient` from the I(api) sub-options.
+
+        Validates the URL and password file before any network I/O so
+        config mistakes surface as clean fail_json messages rather than
+        mid-flow stack traces.
+        """
+        # self.module.log(f"StepCAPolicy::_build_client(api_params: {api_params})")
 
         ca_url = api_params["ca_url"]
         host = urlparse(ca_url).hostname or ""
@@ -432,6 +515,7 @@ class StepCAPolicy:
 
 
 def main():
+    """Module entry point. Wires :class:`AnsibleModule` to :class:`StepCAPolicy`."""
     module = AnsibleModule(
         argument_spec=dict(
             state=dict(type="str", choices=["present", "absent"], default="present"),
@@ -454,7 +538,6 @@ def main():
         ),
         supports_check_mode=True,
         required_if=[
-            ("scope", "provisioner", ["provisioner"]),
             ("state", "present", ["policy"]),
         ],
     )

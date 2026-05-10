@@ -3,6 +3,28 @@
 
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
+"""
+Idempotent management of step-ca provisioners via the Admin API.
+
+Currently supports the C(ACME) provisioner type. The wire format mirrors
+the linkedca protobuf schema serialised via protojson:
+
+  * The provisioner-type discriminator is the outer ``type`` field.
+  * Type-specific fields go into ``details.<TYPE>`` — for ACME, that is
+    ``details.ACME``, with the inner key being the protobuf oneof field
+    name (no separate ``data`` wrapper, no inner ``type`` discriminator).
+  * Enum-style fields (``challenges``, ``attestationFormats``) use the
+    protobuf enum names (e.g. ``HTTP_01``), not the ACME spec strings.
+  * Provisioner ``claims`` are nested under a ``durations`` block per
+    certificate kind, distinct from the flat field names that
+    ``authority.claims`` in ``ca.json`` uses.
+
+Idempotency is non-trivial because step-ca's responses omit default
+values (``false`` / ``""`` / empty list / empty dict). The :meth:`_diff`
+helper treats "missing on server" as "equal to default in desired" so
+that wiring through the same dict on a second run produces no PUT.
+"""
+
 from __future__ import absolute_import, division, print_function
 
 import json
@@ -19,7 +41,7 @@ from ansible_collections.bodsch.certs.plugins.module_utils.step_ca.exceptions im
 DOCUMENTATION = r"""
 ---
 module: step_ca_provisioner
-version_added: "1.1.0"
+version_added: "1.2.0"
 short_description: Manage step-ca provisioners via the Admin API
 author:
   - "Bodo Schulz (@bodsch) <bodo@boone-schulz.de>"
@@ -44,10 +66,6 @@ options:
         required: true
       ca_root:
         description: Path to the root CA certificate used for TLS verification.
-        type: path
-        required: true
-      ca_config:
-        description: Path to ca.json (used to read the encrypted admin JWK).
         type: path
         required: true
       admin_provisioner:
@@ -76,7 +94,12 @@ options:
     type: bool
     default: false
   require_eab:
-    description: Require External Account Binding for ACME registrations.
+    description:
+      - Require External Account Binding for ACME registrations.
+      - Note that issuing/managing EAB credentials is gated behind Smallstep
+        Certificate Manager. Setting this to C(true) on standalone step-ca
+        produces a configurable provisioner that no client can register
+        with — the matching admin endpoints respond with HTTP 501.
     type: bool
     default: false
   challenges:
@@ -92,11 +115,29 @@ options:
     elements: str
     default: []
   claims:
-    description: Per-provisioner overrides for certificate-duration claims.
+    description:
+      - Per-provisioner overrides for certificate-duration claims.
+      - Top-level keys (all optional) follow snake_case for the user-facing
+        API and are translated internally to the protojson wire format.
+      - C(tls_duration) — dict with C(default) / C(min) / C(max), e.g.
+        C({default: 24h, min: 5m, max: 720h}).
+      - C(ssh_user_duration) — same shape, applies to ssh user certs.
+      - C(ssh_host_duration) — same shape, applies to ssh host certs.
+      - C(disable_renewal) — bool.
+      - C(allow_renewal_after_expiry) — bool.
+      - C(disable_smallstep_extensions) — bool.
+      - Unknown top-level keys cause the module to fail rather than
+        producing a payload step-ca would reject with a cryptic error.
     type: dict
     default: {}
   policy:
-    description: Optional x509/ssh policy attached to the provisioner.
+    description:
+      - Optional x509/ssh policy attached to the provisioner.
+      - Per-provisioner policies are gated behind Smallstep Certificate
+        Manager — the corresponding endpoint responds with
+        "disabled in standalone" on open-source step-ca.
+      - Prefer the dedicated C(step_ca_policy) module with
+        C(scope=authority) for issuance restrictions.
     type: dict
 """
 
@@ -117,8 +158,9 @@ EXAMPLES = r"""
     require_eab: true
     challenges: [dns-01]
     claims:
-      defaultTLSCertDuration: 24h
-      maxTLSCertDuration: 168h
+      tls_duration:
+        default: 24h
+        max: 168h
     api: "{{ step_ca_admin_connection }}"
 
 - name: Remove a provisioner
@@ -143,6 +185,10 @@ diff:
   returned: when changes were applied
 """
 
+
+#: ACME challenge spec strings → linkedca enum value names. The wire
+#: format requires the enum names (e.g. ``HTTP_01``); we expose the
+#: spec strings (``http-01``) on the module interface for readability.
 _ACME_CHALLENGE_MAP = {
     "http-01": "HTTP_01",
     "dns-01": "DNS_01",
@@ -150,6 +196,7 @@ _ACME_CHALLENGE_MAP = {
     "device-attest-01": "DEVICE_ATTEST_01",
 }
 
+#: Attestation format strings → linkedca enum value names.
 _ACME_ATTESTATION_MAP = {
     "apple": "APPLE",
     "step": "STEP",
@@ -166,12 +213,24 @@ class StepCAProvisioner:
       2. Build desired payload from module params.
       3. Compare normalised payloads (only fields we manage).
       4. Create / update / delete as needed.
+
+    Supported types
+        Only ``ACME`` for now. Other types (``OIDC``, ``JWK``, ``X5C``)
+        require dedicated detail builders and will be added as needed.
+
+    Wire format
+        See the module-level docstring for the protojson quirks the
+        builders accommodate (oneof discriminator on field name, no
+        ``data`` wrapper, enum names rather than spec strings).
     """
 
     # Mapping of module-param names to API field names for the ACME details
     # block. Kept explicit (rather than auto-camelCase) for clarity.
 
     def __init__(self, module):
+        """
+        :param module: The :class:`AnsibleModule` instance.
+        """
         self.module = module
         # self.module.log("StepCAProvisioner::__init__()")
 
@@ -185,7 +244,11 @@ class StepCAProvisioner:
     # ----------------------------------------------------------------- public
 
     def run(self):
-        """ """
+        """
+        Apply the requested state.
+
+        :returns: Result dict for ``module.exit_json``.
+        """
         # self.module.log("StepCAProvisioner::run()")
 
         existing = self._fetch_existing()
@@ -198,7 +261,14 @@ class StepCAProvisioner:
     # ----------------------------------------------------------------- private
 
     def _build_client(self, api_params):
-        """ """
+        """
+        Construct a :class:`StepCAClient` from the I(api) sub-options.
+
+        Validates the URL (rejects bind-only addresses that would fail
+        as TLS hostname mismatches) and the password file before any
+        network I/O so config mistakes surface as clean fail_json
+        messages rather than mid-flow stack traces.
+        """
         # self.module.log(f"StepCAProvisioner::_build_client(api_params: {api_params})")
 
         from urllib.parse import urlparse
@@ -229,7 +299,13 @@ class StepCAProvisioner:
         )
 
     def _fetch_existing(self):
-        """ """
+        """
+        Fetch the named provisioner from the server, or return ``None``
+        if it does not exist.
+
+        Translates a 404 into ``None`` rather than raising, so callers
+        can use the absence/presence as a state signal.
+        """
         # self.module.log("StepCAProvisioner::_fetch_existing()")
 
         try:
@@ -356,39 +432,6 @@ class StepCAProvisioner:
             block["max"] = str(d["max"])
         return block
 
-    def _build_desired_OLD(self):
-        """
-        Build the linkedca-shaped provisioner payload step-ca expects on
-        /admin/provisioners. The Admin API uses protojson, so:
-
-          * The provisioner-type discriminator is the outer `type` field.
-          * Type-specific fields go into `details.<TYPE>` with a parallel
-            `details.type` discriminator.
-          * Enum-style fields (challenges, attestationFormats) use the
-            protobuf enum names (e.g. "HTTP_01"), not the ACME spec strings.
-        """
-        # self.module.log("StepCAProvisioner::_build_desired()")
-
-        payload = {
-            "type": self.type,
-            "name": self.name,
-        }
-
-        claims = self.module.params.get("claims") or {}
-        if claims:
-            payload["claims"] = claims
-
-        policy = self.module.params.get("policy")
-        if policy:
-            payload["policy"] = policy
-
-        if self.type == "ACME":
-            payload["details"] = self._build_acme_details()
-        else:
-            self.module.fail_json(msg=f"Unsupported provisioner type: {self.type}")
-
-        return payload
-
     def _build_acme_details(self):
         """
         Build the ACME-specific block of the provisioner payload.
@@ -435,7 +478,17 @@ class StepCAProvisioner:
         return {"ACME": inner}
 
     def _ensure_present(self, existing):
-        """ """
+        """
+        Create the provisioner if missing, PUT a merged record if any
+        managed field differs, no-op otherwise.
+
+        Update path: the existing record is merged with the desired
+        payload (server-supplied metadata such as ``id`` /
+        ``createdAt`` is preserved), then PUT back to the server.
+
+        :param existing: ``None`` or the dict returned by
+            :meth:`_fetch_existing`.
+        """
         # self.module.log(f"StepCAProvisioner::_ensure_present(existing: {existing})")
 
         desired = self._build_desired()
@@ -463,7 +516,9 @@ class StepCAProvisioner:
         return dict(changed=True, provisioner=updated, diff=diff)
 
     def _ensure_absent(self, existing):
-        """ """
+        """
+        Delete the provisioner if present, no-op otherwise.
+        """
         # self.module.log(f"StepCAProvisioner::_ensure_absent(existing: {existing})")
 
         if existing is None:
@@ -519,6 +574,7 @@ class StepCAProvisioner:
 
 
 def main():
+    """Module entry point. Wires :class:`AnsibleModule` to :class:`StepCAProvisioner`."""
     module = AnsibleModule(
         argument_spec=dict(
             state=dict(type="str", choices=["present", "absent"], default="present"),

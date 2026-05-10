@@ -249,7 +249,8 @@ class DomainCerts(object):
 
         for domain in self.domains:
             args = []
-            # expand = False
+            expand = False
+            create = False
 
             domain_name = domain.get("domain")
             domain_list = self.__cert_list(domain)
@@ -289,6 +290,7 @@ class DomainCerts(object):
                 certificat not exists
                 """
                 self.module.log(msg=f"Create a new certificate for '{domain_name}'")
+                create = True
 
                 # result_msgs[domain_name] = {}
                 # self.module.log(msg=f"        run certbot")
@@ -300,44 +302,46 @@ class DomainCerts(object):
                     args.append("--domain")
                     args.append(d)
 
-            # else:
-            #     """
-            #         certificat not exists
-            #     """
-            #     if expand:
-            #         args.append("--expand")
-
-            # self.module.log(msg=f" - base_args {base_args}")
-            # self.module.log(msg=f" - args      {args}")
-
-            # ---------------------------------------------------------------------
-            # rc, out, err = self.__exec(args, check=False)
-            rc = 2
-            out = "testing"
-            err = "testing"
-
-            # self.module.log(msg=f"  rc : '{rc}'")
-            # self.module.log(msg=f"  out: '{out}'")
-            # self.module.log(msg=f"  err: '{err}'")
-
-            if rc == 0:
-                self.module.log(msg=f"     out: '{out}'")
-                _failed = False
-                _changed = True
-                result_msgs[domain_name] = dict(
-                    rc=rc, cmd=" ".join(args), failed=False, changed=True
-                )
-
             else:
-                self.module.log(msg=f"     err: '{err}'")
-                result_msgs[domain_name] = dict(
-                    rc=rc,
-                    cmd=" ".join(args),
-                    stderr=err,
-                    stdout=out,
-                    failed=True,
-                    changed=False,
-                )
+                """
+                certificat not exists
+                """
+                if expand:
+                    args.append("--expand")
+
+            if create:
+
+                self.module.log(msg=f" - base_args {base_args}")
+                self.module.log(msg=f" - args      {args}")
+
+                # ---------------------------------------------------------------------
+                rc, out, err = self.__exec(args, check=False)
+                # rc = 2
+                # out = "testing"
+                # err = "testing"
+
+                self.module.log(msg=f"  rc : '{rc}'")
+                self.module.log(msg=f"  out: '{out}'")
+                self.module.log(msg=f"  err: '{err}'")
+
+                if rc == 0:
+                    self.module.log(msg=f"     out: '{out}'")
+                    _failed = False
+                    _changed = True
+                    result_msgs[domain_name] = dict(
+                        rc=rc, cmd=" ".join(args), failed=False, changed=True
+                    )
+
+                else:
+                    self.module.log(msg=f"     err: '{err}'")
+                    result_msgs[domain_name] = dict(
+                        rc=rc,
+                        cmd=" ".join(args),
+                        stderr=err,
+                        stdout=out,
+                        failed=True,
+                        changed=False,
+                    )
             # ---------------------------------------------------------------------
 
         error_count = len({k for k, v in result_msgs.items() if v.get("failed", False)})
