@@ -40,6 +40,7 @@ version_added: "1.0.0"
 short_description: Bootstrap a local smallstep step-ca authority
 author:
   - "Bodo Schulz (@bodsch) <bodo@boone-schulz.de>"
+
 description:
   - Initializes a standalone step-ca PKI under the given home directory using C(step-cli).
   - Optionally updates the C(authority.claims) section of C(ca.json) idempotently.
@@ -102,6 +103,17 @@ options:
     description: Name of the JWK admin provisioner created during init (C(--provisioner)).
     type: str
     default: admin
+  remote_management:
+    description:
+      - If C(true), pass C(--remote-management) to C(step ca init), enabling the
+        Admin API and storing provisioners in BadgerDB rather than C(ca.json).
+      - The Admin API based modules in this collection (C(step_ca_provisioner),
+        C(step_ca_policy), C(step_ca_admin)) require this to be C(true).
+      - C(--admin-subject) is only honoured by step-cli when remote management
+        is enabled, so the subject from I(admin_subject) is only forwarded in
+        that case.
+    type: bool
+    default: true
   config:
     description:
       - Authority claims to merge into C(authority.claims) in C(ca.json).
@@ -167,6 +179,11 @@ cmd:
 
 # Mapping of nested config keys to step-ca claim names.
 # Kept as a flat declarative table to avoid 25 lines of if/elif.
+#
+# Each tuple is (config_path, claim_name). Walking the user-supplied
+# config dict with the path produces either the value to set or None
+# if the key is absent. Only present values are written, leaving the
+# others at step-ca's defaults.
 _CLAIM_MAP = (
     # (config_path, claim_name)
     (("tls_duration", "default"), "defaultTLSCertDuration"),
@@ -184,9 +201,28 @@ _CLAIM_MAP = (
 
 
 class StepCA:
-    """Bootstrap and configure the authority claims of a step-ca instance."""
+    """
+    Bootstrap and configure the authority claims of a step-ca instance.
+
+    Two-phase operation in :meth:`run`:
+
+    1. **Init phase** — if the CA's root certificate or ``ca.json`` is
+       missing, run ``step-cli ca init`` with the configured options.
+       Idempotent: a CA that already exists is left untouched.
+    2. **Claims phase** — read ``ca.json``, compare its
+       ``authority.claims`` block against the desired claims derived
+       from the user's nested I(config), and rewrite the file only if
+       they differ.
+
+    Out of scope: provisioner / admin / policy management — those go
+    through the dedicated API-based modules in this collection.
+    """
 
     def __init__(self, module):
+        """
+        :param module: The :class:`AnsibleModule` instance providing
+            parameters and reporting facilities.
+        """
         self.module = module
         self.module.log("StepCA::__init__()")
 
@@ -218,6 +254,11 @@ class StepCA:
     # ----------------------------------------------------------------- public
 
     def run(self):
+        """
+        Execute the bootstrap + claims update pipeline.
+
+        :returns: Result dict suitable for ``module.exit_json``.
+        """
         if self.force:
             self._clean()
 
@@ -233,11 +274,30 @@ class StepCA:
     # ---------------------------------------------------------------- private
 
     def _clean(self):
+        """
+        Recursively remove the ``.step`` directory under I(home).
+
+        Destructive — wipes all CA keys, certificates and configuration.
+        Only invoked when I(force) is true.
+        """
         path = os.path.join(self.step_home, ".step")
         if os.path.exists(path):
             shutil.rmtree(path)
 
     def _init_ca(self):
+        """
+        Run ``step-cli ca init`` if the CA does not yet exist.
+
+        Idempotent — returns ``changed=False`` when both the root cert
+        and ``ca.json`` are already present.
+
+        ``--admin-subject`` is only forwarded to step-cli when
+        :attr:`remote_management` is true; step-cli rejects it otherwise.
+
+        :returns: Result dict with at least ``failed`` and ``changed``.
+            On success, also includes the executed argv as ``cmd`` and
+            the trimmed stdout as ``result`` / ``stdout``.
+        """
         if os.path.exists(self.step_root_cert) and os.path.exists(
             self.step_config_file
         ):
@@ -292,58 +352,20 @@ class StepCA:
             failed=False, changed=True, cmd=args, result=out.rstrip(), stdout=out
         )
 
-    def _init_ca_OLD(self):
-        if os.path.exists(self.step_root_cert) and os.path.exists(
-            self.step_config_file
-        ):
-            return dict(failed=False, changed=False, msg="CA is already created.")
-
-        if not self.step_name:
-            self.module.fail_json(msg="'name' is required for first-time init")
-
-        pwd_file = os.path.join(self.step_home, self.step_password_file)
-        if not os.path.exists(pwd_file):
-            self.module.fail_json(msg=f"Password file does not exist: {pwd_file}")
-
-        args = [
-            self._step,
-            "ca",
-            "init",
-            "--name",
-            self.step_name,
-            "--address",
-            f"{self.listen_address}:{self.listen_port}",
-            "--provisioner",
-            self.admin_provisioner,
-            "--admin-subject",
-            self.admin_subject,
-            "--password-file",
-            pwd_file,
-            "--provisioner-password-file",
-            pwd_file,
-            "--deployment-type",
-            "standalone",
-        ]
-        for dns in self.step_dns:
-            args.extend(["--dns", dns])
-
-        rc, out, err = self.module.run_command(args, check_rc=False)
-
-        if rc != 0:
-            return dict(
-                failed=True,
-                changed=False,
-                cmd=args,
-                msg="step ca init failed",
-                stderr=err,
-                stdout=out,
-            )
-
-        return dict(
-            failed=False, changed=True, cmd=args, result=out.rstrip(), stdout=out
-        )
-
     def _update_authority_claims(self, result):
+        """
+        Reconcile ``authority.claims`` in ``ca.json`` with the desired
+        config.
+
+        Reads the file, compares the existing claims against the desired
+        ones (via checksum to be robust against key ordering), and
+        rewrites the file only if they differ. Marks the result as
+        ``changed`` in that case.
+
+        :param result: The result dict returned by :meth:`_init_ca`.
+            Mutated in place if a write occurs.
+        :returns: The (possibly updated) ``result`` dict.
+        """
         desired = self._build_desired_claims()
         if not desired:
             return result
@@ -370,7 +392,15 @@ class StepCA:
         return result
 
     def _build_desired_claims(self):
-        """Translate nested module config dict to flat step-ca claims dict."""
+        """
+        Translate the user's nested I(config) dict to the flat
+        ``authority.claims`` shape step-ca expects.
+
+        Walks :data:`_CLAIM_MAP`, picking up only those values the user
+        actually set; missing keys are left at step-ca defaults.
+
+        :returns: Dict mapping step-ca claim names to their values.
+        """
         claims = {}
         for path, claim_name in _CLAIM_MAP:
             value = self._dig(self.step_config, path)
@@ -380,6 +410,14 @@ class StepCA:
 
     @staticmethod
     def _dig(data, path):
+        """
+        Walk a nested dict by an iterable of keys, returning the leaf
+        value or ``None`` if any key is missing or the traversal hits a
+        non-dict.
+
+        :param data: Dict to walk.
+        :param path: Iterable of keys forming the path.
+        """
         cur = data
         for key in path:
             if not isinstance(cur, dict):
@@ -391,6 +429,7 @@ class StepCA:
 
 
 def main():
+    """Module entry point. Wires :class:`AnsibleModule` to :class:`StepCA`."""
     module = AnsibleModule(
         argument_spec=dict(
             state=dict(type="str", choices=["init"], default="init"),

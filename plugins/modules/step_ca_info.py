@@ -3,6 +3,18 @@
 
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
+"""
+Read-only fact gathering from a step-ca instance.
+
+Public endpoints (``/health``, ``/version``, ``/roots``, ``/provisioners``)
+are reachable without admin credentials. Admin endpoints
+(``/admin/provisioners``, ``/admin/admins``, ``/admin/policy``) require
+the same authentication chain as the CRUD modules.
+
+Result keys are exactly the ones requested via I(gather) — unrequested
+keys are not present in the return value.
+"""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
@@ -23,7 +35,7 @@ from ansible_collections.bodsch.certs.plugins.module_utils.step_ca.exceptions im
 DOCUMENTATION = r"""
 ---
 module: step_ca_info
-version_added: "1.5.0"
+version_added: "1.2.0"
 short_description: Read-only facts about a step-ca instance
 author:
   - "Bodo Schulz (@bodsch) <bodo@boone-schulz.de>"
@@ -137,7 +149,8 @@ admin_provisioners:
   elements: dict
   returned: when admin_provisioners was gathered
 admins:
-  description: Registered admin users.
+  description: Registered admin users. Type integers from linkedca's protobuf
+    enum are normalised to their string equivalents (C(ADMIN), C(SUPER_ADMIN)).
   type: list
   elements: dict
   returned: when admins was gathered
@@ -148,27 +161,42 @@ policy:
 """
 
 
+#: Page size used when paginating list endpoints (``/provisioners``,
+#: ``/admin/provisioners``, ``/admin/admins``).
 _PAGE_LIMIT = 100
 
-# Keys that require admin authentication.
+#: gather keys that require admin authentication.
 _ADMIN_KEYS = frozenset({"admin_provisioners", "admins", "policy"})
 
 
 class StepCAInfo:
-    """Gather facts from a step-ca instance.
+    """
+    Gather facts from a step-ca instance.
 
     Two transport paths:
-      * Public endpoints — direct requests against ca_url with TLS verify
-        against ca_root. No JWT, no provisioner key handling.
-      * Admin endpoints — full StepCAClient including the AdminTokenBuilder
-        chain (provisioner JWK lookup, ephemeral cert, x5c JWT).
+
+    * **Public endpoints** — direct ``requests.get`` calls against
+      ``ca_url`` with TLS verification against ``ca_root``. No JWT, no
+      provisioner key handling.
+    * **Admin endpoints** — full :class:`StepCAClient` including the
+      :class:`AdminTokenBuilder` chain (provisioner JWK lookup,
+      ephemeral cert, x5c JWT).
+
+    The admin client is built lazily — only when at least one admin-scope
+    key appears in :attr:`gather`. A purely public invocation therefore
+    never pays the PBKDF2 / ``/1.0/sign`` cost.
+
+    Idempotent by definition — never mutates server state.
     """
 
     def __init__(self, module):
+        """
+        :param module: The :class:`AnsibleModule` instance providing
+            parameters and reporting facilities.
+        """
         self.module = module
-        self.gather = list(
-            dict.fromkeys(module.params["gather"] or [])
-        )  # dedupe, keep order
+        # Dedupe the gather list while keeping the user-given order.
+        self.gather = list(dict.fromkeys(module.params["gather"] or []))
 
         api = module.params["api"]
         self._ca_url = api["ca_url"].rstrip("/")
@@ -185,6 +213,12 @@ class StepCAInfo:
     # ------------------------------------------------------------------ public
 
     def run(self):
+        """
+        Execute the gather plan and return a result dict.
+
+        :returns: Dict with ``changed=False`` plus one entry per
+            requested gather key.
+        """
         result = dict(changed=False)
         for key in self.gather:
             result[key] = self._fetch(key)
@@ -193,6 +227,17 @@ class StepCAInfo:
     # ------------------------------------------------------------- validation
 
     def _validate_inputs(self):
+        """
+        Validate parameters before any network I/O.
+
+        Catches three classes of mistakes early:
+
+        * ``ca_url`` pointing at a bind-only address (``0.0.0.0``, ``::``),
+          which would fail later as a TLS hostname mismatch.
+        * Missing root CA certificate file.
+        * Admin-scope facts requested without (or with a missing)
+          admin password file.
+        """
         host = urlparse(self._ca_url).hostname or ""
         if host in ("0.0.0.0", "::", ""):
             self.module.fail_json(
@@ -217,6 +262,13 @@ class StepCAInfo:
     # --------------------------------------------------------------- dispatch
 
     def _fetch(self, key):
+        """
+        Dispatch a single gather key to its ``_fetch_<key>`` handler.
+
+        :param key: One of the keys declared in the module's
+            ``gather`` argument spec.
+        :returns:   Whatever the handler returns (str / dict / list).
+        """
         try:
             handler = getattr(self, f"_fetch_{key}")
         except AttributeError:
@@ -226,16 +278,23 @@ class StepCAInfo:
     # ---------------------------------------------------------- public scope
 
     def _fetch_health(self):
+        """Return the server's health status string from ``/health``."""
         data = self._public_get("/health")
         return data.get("status") if isinstance(data, dict) else data
 
     def _fetch_version(self):
+        """Return the parsed JSON of ``/version``."""
         return self._public_get("/version")
 
     def _fetch_roots(self):
         """
-        /roots returns a list of root CA crts. Some versions wrap them in
-        a `crts` key, some return a top-level list. Normalise to PEM list.
+        Return the list of root CA certificates as PEM strings.
+
+        ``/roots`` is shaped slightly differently across step-ca
+        versions — sometimes a top-level list, sometimes wrapped in
+        ``crts`` or ``certs``, with entries either as plain PEM strings
+        or as objects keyed by ``crt`` / ``certificate`` / ``pem``.
+        We normalise all variants to a flat list of PEM strings.
         """
         data = self._public_get("/roots")
         items = (
@@ -254,15 +313,25 @@ class StepCAInfo:
         return out
 
     def _fetch_provisioners(self):
+        """Return the public ``/provisioners`` listing (paginated)."""
         return list(self._paginate_public("/provisioners", "provisioners"))
 
     # ----------------------------------------------------------- admin scope
 
     def _fetch_admin_provisioners(self):
+        """Return the admin-side provisioner listing (paginated)."""
         return list(self._paginate_admin("/admin/provisioners", "provisioners"))
 
     def _fetch_admins(self):
-        # return list(self._paginate_admin("/admin/admins", "admins"))
+        """
+        Return the admin user listing.
+
+        The server returns ``type`` as the integer value of the linkedca
+        ``Admin_Type`` enum (1=ADMIN, 2=SUPER_ADMIN). For nicer downstream
+        consumption (assert tasks, debug output) the integers are
+        translated back to their string names. Unknown values pass
+        through unchanged so future enum additions don't crash.
+        """
         admins = list(self._paginate_admin("/admin/admins", "admins"))
         for adm in admins:
             t = adm.get("type")
@@ -271,6 +340,12 @@ class StepCAInfo:
         return admins
 
     def _fetch_policy(self):
+        """
+        Return the authority-wide policy or ``None`` if not configured.
+
+        A 404 from the server is treated as "no policy set" rather than
+        an error.
+        """
         try:
             return self._admin().get("/admin/policy")
         except StepCAAPIError as exc:
@@ -281,6 +356,12 @@ class StepCAInfo:
     # -------------------------------------------------------------- transport
 
     def _public_get(self, path, params=None):
+        """
+        Plain HTTPS GET against the public scope.
+
+        Verifies TLS against the local root CA. JSON-decodes the response
+        body when possible, falls back to the raw text otherwise.
+        """
         url = f"{self._ca_url}{path}"
         try:
             resp = requests.get(url, params=params, verify=self._ca_root, timeout=15)
@@ -293,6 +374,12 @@ class StepCAInfo:
             return resp.text
 
     def _paginate_public(self, path, key):
+        """
+        Iterate the items of a paginated public list endpoint.
+
+        :param path: API path (e.g. ``/provisioners``).
+        :param key:  Top-level wrapper key under which the list lives.
+        """
         cursor = ""
         while True:
             params = {"limit": _PAGE_LIMIT}
@@ -306,6 +393,12 @@ class StepCAInfo:
                 break
 
     def _paginate_admin(self, path, key):
+        """
+        Iterate the items of a paginated admin list endpoint.
+
+        :param path: Admin API path (e.g. ``/admin/admins``).
+        :param key:  Top-level wrapper key under which the list lives.
+        """
         client = self._admin()
         cursor = ""
         while True:
@@ -324,6 +417,10 @@ class StepCAInfo:
 
     @staticmethod
     def _extract_list(payload, key):
+        """
+        Unwrap a list response that may be either a bare list or a dict
+        wrapping the list under ``key``.
+        """
         if isinstance(payload, list):
             return payload
         if isinstance(payload, dict):
@@ -333,6 +430,14 @@ class StepCAInfo:
         return []
 
     def _admin(self):
+        """
+        Return the cached admin client, building it on first call.
+
+        Reading the password file and constructing the
+        :class:`AdminTokenBuilder` are both cheap; the actual PBKDF2
+        decryption is amortised inside the token builder on its first
+        ``build()`` call.
+        """
         if self._admin_client is not None:
             return self._admin_client
         with open(self._admin_password_file, "rb") as f:
@@ -348,6 +453,7 @@ class StepCAInfo:
 
 
 def main():
+    """Module entry point. Wires :class:`AnsibleModule` to :class:`StepCAInfo`."""
     module = AnsibleModule(
         argument_spec=dict(
             api=dict(

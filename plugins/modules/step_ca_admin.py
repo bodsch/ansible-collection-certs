@@ -3,6 +3,20 @@
 
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
+"""
+Idempotent management of step-ca admin users via the Admin API.
+
+step-ca's ``/admin/admins`` endpoint accepts the provisioner name on
+``POST`` but reports membership via ``provisioner_id`` (UUID) on ``GET``.
+This module bridges the two by resolving the name to its UUID once per
+invocation and using that UUID as the idempotency match criterion.
+
+Field-name oddity: the linkedca enum ``Admin_Type`` is serialised as an
+integer on this endpoint (``ADMIN=1``, ``SUPER_ADMIN=2``), unlike the
+provisioner endpoints which use protojson and accept enum strings. The
+module exposes a string-based interface and translates internally.
+"""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
@@ -22,10 +36,11 @@ from ansible_collections.bodsch.certs.plugins.module_utils.step_ca.exceptions im
 DOCUMENTATION = r"""
 ---
 module: step_ca_admin
-version_added: "1.4.0"
+version_added: "1.2.0"
 short_description: Manage step-ca admin users via the Admin API
 author:
   - "Bodo Schulz (@bodsch) <bodo@boone-schulz.de>"
+
 description:
   - Creates, updates and removes admin users on a running step-ca instance.
   - Identifies an admin by the tuple C((subject, provisioner)). step-ca
@@ -121,9 +136,10 @@ admin:
 """
 
 
+#: Page size used when paginating ``/admin/admins``.
 _PAGE_LIMIT = 100
 
-# Module-level enum mapping — linkedca.Admin_Type
+#: Module-facing string ↔ wire-format integer for ``linkedca.Admin_Type``.
 _ADMIN_TYPE_TO_INT = {
     "ADMIN": 1,
     "SUPER_ADMIN": 2,
@@ -133,7 +149,15 @@ _ADMIN_TYPE_FROM_INT = {v: k for k, v in _ADMIN_TYPE_TO_INT.items()}
 
 
 def _normalize_admin_type(value):
-    """Server may return either the int or the string. Normalise to string."""
+    """
+    Normalise a server-supplied admin type to its string name.
+
+    step-ca currently returns the enum integer (e.g. ``1``), but
+    different versions or response formats might return the string.
+    Both are folded to the canonical string ``"ADMIN"`` /
+    ``"SUPER_ADMIN"`` for comparison; an unknown integer or empty
+    value collapses to the empty string.
+    """
     if isinstance(value, int):
         return _ADMIN_TYPE_FROM_INT.get(value, "")
     if isinstance(value, str):
@@ -153,9 +177,23 @@ class StepCAAdmin:
       * DELETE /admin/admins/{id}           — remove
 
     There is no "get by subject" endpoint, so we list and filter client-side.
+
+    Identity model
+        An admin is identified by ``(subject, provisioner)``. Provisioner
+        is given by name on input but compared by UUID, since the list
+        endpoint reports admins under ``provisioner_id``. The mapping
+        name → UUID is fetched on demand and cached on the instance.
+
+    Mutable fields
+        Only ``type`` (the role). Changing the provisioner of an existing
+        admin is not supported — that would require delete + recreate
+        which the module declines to perform implicitly.
     """
 
     def __init__(self, module):
+        """
+        :param module: The :class:`AnsibleModule` instance.
+        """
         self.module = module
         # self.module.log("StepCAAdmin::__init__()")
 
@@ -173,7 +211,11 @@ class StepCAAdmin:
         self._provisioner_id = None  # resolved on demand
 
     def run(self):
-        """ """
+        """
+        Locate a matching admin and apply the requested state.
+
+        :returns: Result dict suitable for ``module.exit_json``.
+        """
         # self.module.log("StepCAAdmin::run()")
 
         existing = self._find_existing()
@@ -184,7 +226,14 @@ class StepCAAdmin:
     # ------------------------------------------------------------------ logic
 
     def _ensure_present(self, existing):
-        """ """
+        """
+        Create the admin if missing, PATCH its role if mismatched, no-op
+        if already in the desired state.
+
+        :param existing: Either ``None`` or the matched admin dict from
+            :meth:`_find_existing`.
+        :returns: Dict with ``changed`` and ``admin``.
+        """
         # self.module.log(f"StepCAAdmin::_ensure_present(existing: {existing})")
         type_int = _ADMIN_TYPE_TO_INT[self.type]
 
@@ -226,7 +275,12 @@ class StepCAAdmin:
         return dict(changed=True, admin=updated)
 
     def _ensure_absent(self, existing):
-        """ """
+        """
+        Remove the admin if it exists, no-op otherwise.
+
+        :param existing: Either ``None`` or the matched admin dict.
+        :returns: Dict with ``changed``.
+        """
         # self.module.log(f"StepCAAdmin::_ensure_absent(existing: {existing})")
 
         if existing is None:
@@ -251,9 +305,17 @@ class StepCAAdmin:
 
     def _find_existing(self):
         """
-        Return the unique existing admin matching subject (and, if given,
-        provisioner). Multiple matches without a provisioner specified is
-        an error.
+        Return the unique existing admin matching subject (and, if
+        :attr:`provisioner` is set, the resolved provisioner UUID), or
+        ``None``.
+
+        Multiple matches without a provisioner constraint is treated as
+        a hard error — the module refuses to guess.
+
+        Both ``provisionerId`` (camelCase, protojson) and
+        ``provisioner_id`` (snake_case, gojson) are accepted on inbound
+        records since step-ca's responses are inconsistent across
+        endpoints.
         """
         # self.module.log("StepCAAdmin::_find_existing()")
 
@@ -292,6 +354,10 @@ class StepCAAdmin:
 
     @staticmethod
     def _extract_list(payload):
+        """
+        Unwrap a list response that may be either a bare list or a dict
+        wrapping the list under ``admins`` or ``data``.
+        """
         if isinstance(payload, list):
             return payload
         for key in ("admins", "data"):
@@ -306,6 +372,9 @@ class StepCAAdmin:
         The /admin/admins responses link admins via `provisionerId` (UUID),
         while the create payload accepts the provisioner *name* — we therefore
         have to translate one to the other for idempotent matching.
+
+        The lookup hits ``/admin/provisioners/{name}`` exactly once per
+        module run; the result is cached on the instance.
         """
         # self.module.log("StepCAAdmin::_resolve_provisioner_id()")
 
@@ -332,7 +401,13 @@ class StepCAAdmin:
     # ------------------------------------------------------------- api setup
 
     def _build_client(self, api_params):
-        """ """
+        """
+        Construct a :class:`StepCAClient` from the module's I(api) dict.
+
+        Validates the URL and password file before any network I/O so
+        configuration mistakes surface as clean fail_json messages
+        rather than mid-flow stack traces.
+        """
         # self.module.log(f"StepCAAdmin::_build_client(api_params: {api_params})")
 
         ca_url = api_params["ca_url"]
@@ -361,6 +436,7 @@ class StepCAAdmin:
 
 
 def main():
+    """Module entry point. Wires :class:`AnsibleModule` to :class:`StepCAAdmin`."""
     module = AnsibleModule(
         argument_spec=dict(
             state=dict(type="str", choices=["present", "absent"], default="present"),
