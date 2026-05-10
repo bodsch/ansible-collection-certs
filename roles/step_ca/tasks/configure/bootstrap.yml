@@ -1,0 +1,24 @@
+---
+
+- name: bootstrap step-ca
+  remote_user: "{{ step_ca_system.owner }}"
+  bodsch.certs.step_ca:
+    state: init
+    listen:
+      address: "{{ step_ca_authority.listen.address | default('127.0.0.1') }}"
+      port:    "{{ step_ca_authority.listen.port    | default(9000) }}"
+    name:           "{{ step_ca_authority.name }}"
+    force:          "{{ step_ca_force | default(false) | bool }}"
+    home:           "{{ step_ca_system.home }}"
+    password_file:  ".step.password"
+    dns:            "{{ step_ca_authority.dns | default([]) }}"
+    admin_subject:  "{{ step_ca_authority.admin_subject | default('step') }}"
+    config:         "{{ step_ca_authority.config | default({}) }}"
+  notify:
+    - restart step-ca
+  when:
+    - step_ca_authority.name | default('') | string | length > 0
+    - step_ca_authority.dns | default([]) | count > 0
+
+- name: ensure step-ca is running before talking to the API
+  ansible.builtin.meta: flush_handlers

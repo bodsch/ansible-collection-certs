@@ -1,0 +1,9 @@
+---
+
+- name: manage authority-wide policy
+  bodsch.certs.step_ca_policy:
+    scope: authority
+    state: "{{ 'present' if step_ca_authority_policy else 'absent' }}"
+    policy: "{{ step_ca_authority_policy | default(omit) }}"
+    api: "{{ step_ca_admin_connection }}"
+  when: step_ca_authority_policy is defined

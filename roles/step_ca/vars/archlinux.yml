@@ -1,5 +1,8 @@
 ---
 
-step_ca_dependencies: []
+step_ca_dependencies:
+  - python-requests
+  - python-httpx
+  - python-cryptography
 
 ...
