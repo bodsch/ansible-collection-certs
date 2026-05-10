@@ -1,0 +1,16 @@
+---
+
+- name: manage ACME provisioners
+  bodsch.certs.step_ca_provisioner:
+    state: "{{ item.state | default('present') }}"
+    name: "{{ item.name }}"
+    type: "{{ item.type | default('ACME') }}"
+    challenges: "{{ item.challenges | default(['http-01','dns-01','tls-alpn-01']) }}"
+    require_eab: "{{ item.require_eab | default(false) }}"
+    force_cn: "{{ item.force_cn | default(false) }}"
+    claims: "{{ item.claims | default({}) }}"
+    policy: "{{ item.policy | default(omit) }}"
+    api: "{{ step_ca_admin_connection }}"
+  loop: "{{ step_ca_authority.provisioners | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"

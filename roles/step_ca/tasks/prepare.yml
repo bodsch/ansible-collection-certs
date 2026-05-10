@@ -30,12 +30,6 @@
   ansible.builtin.set_fact:
     running_in_check_mode: '{{ _check_mode.check_mode }}'
 
-# - name: d
-#   debug:
-#     msg:
-#       - "{{ step_ca_init_password }}"
-#       - "{{ step_ca_init_password | default('') | length == 0 }}"
-
 - name: validate init password
   when:
     - step_ca_init_password | default('') | length == 0

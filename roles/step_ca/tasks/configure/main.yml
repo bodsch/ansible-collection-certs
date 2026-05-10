@@ -1,0 +1,61 @@
+---
+
+- name: create step directory
+  ansible.builtin.file:
+    path: "{{ step_ca_system.home }}/.step"
+    state: directory
+    owner: "{{ step_ca_system.owner }}"
+    group: "{{ step_ca_system.group }}"
+    mode: "0750"
+
+- name: create init password
+  no_log: true
+  ansible.builtin.copy:
+    dest: "{{ step_ca_system.home }}/.step.password"
+    content: "{{ step_ca_init_password }}"
+    owner: "{{ step_ca_system.owner }}"
+    group: "{{ step_ca_system.group }}"
+    mode: "0640"
+
+- name: stop servcie
+  become: true
+  no_log: true
+  ignore_errors: true
+  ansible.builtin.service:
+    name: step-ca
+    state: stopped
+  when:
+    - not running_in_check_mode
+    - step_ca_force
+
+- name: bootstrap service
+  ansible.builtin.include_tasks: configure/bootstrap.yml
+
+- name: manage authority-wide policy
+  ansible.builtin.include_tasks: configure/policy.yml
+  when:
+    - step_ca_authority_policy is defined
+
+- name: manage ACME provisioners
+  ansible.builtin.include_tasks: configure/provisioner.yml
+  when:
+    - step_ca_authority.provisioners | default([]) | count > 0
+
+- name: manage step-ca admin users
+  ansible.builtin.include_tasks: configure/admin_users.yml
+  when:
+    - step_ca_admins | default([]) | count > 0
+
+- name: smoke check
+  bodsch.certs.step_ca_info:
+    api:
+      ca_url: "https://localhost:{{ step_ca_authority.listen.port | default(9000) }}"
+      ca_root: "{{ step_ca_system.home }}/.step/certs/root_ca.crt"
+    gather:
+      - health
+      - version
+  register: _smoke
+
+- ansible.builtin.assert:
+    that:
+      - _smoke.health == "ok"
