@@ -11,13 +11,11 @@
     suites: debs
     components:
       - main
-    signed_by: /etc/apt/trusted.gpg.d/smallstep.asc
+    signed_by: /etc/apt/trusted.gpg.d/smallstep.gpg
     key:
       method: download
       url: https://packages.smallstep.com/keys/apt/repo-signing-key.gpg
-      dest: /etc/apt/trusted.gpg.d/smallstep.asc
-      dearmor: true
-      validate: true
+      dest: /etc/apt/trusted.gpg.d/smallstep.gpg
     update_cache: true
 
 ...
