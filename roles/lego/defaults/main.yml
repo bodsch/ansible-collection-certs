@@ -9,6 +9,6 @@ lego_release: {}
 lego_system_group: lego
 lego_system_user: lego
 
-logo_domain: domain.local
+lego_domain: domain.local
 
 ...
