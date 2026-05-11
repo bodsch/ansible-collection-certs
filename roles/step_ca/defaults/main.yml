@@ -56,36 +56,6 @@ step_ca_admin_connection:
   admin_subject: step
   admin_password_file: "{{ step_ca_system.home }}/.step.password"
 
-step_ca_authority_policy: {}              # leer = nicht konfiguriert
-
-
-# #step_ca_force_create:
-# step_ca_force_certify_nodes: false
-# # see "{{ ansible_facts.os_family }}.yml"
-# step_ca_defult_ssl_certs_dir: "{{ pki_cert_dir | default('/etc/ssl/certs') }}"
-# step_ca_defult_ssl_key_dir: "{{ pki_key_dir | default('/etc/ssl/private') }}"
-#
-# # how long should remain before we generate a new CA cert ?
-# step_ca_cert_expiration_panic_threshold: 604800 # 1 week
-#
-# # where to generate the certs
-# step_ca_certs_dir: /usr/share/ca-certs
-#
-# # where to copy the produces files to
-# step_ca_distribution_certs_dir: "{{ playbook_dir }}/../keys_n_certs"
-#
-# step_ca_rootstep_ca_password: Chang3m3
-# step_ca_cert: ca.pem
-# step_ca_key: ca-priv-key.pem
-#
-# step_ca_dn:
-#   country: DE
-#   state: Hamburg
-#   location: Hamburg
-#   organisation: ACME Inc.
-#   organisational_unit: "BOfH"
-#   domain: "{{ step_ca_domain }}"
-#   commonname: "{{ step_ca_domain }}"
-#   email: "cert@{{ step_ca_domain }}"
+step_ca_authority_policy: {}
 
 ...

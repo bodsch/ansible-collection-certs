@@ -6,8 +6,8 @@ Ansible Role to install and manage teh [smallstep](https://smallstep.com/docs/pl
 
 * ArchLinux
 * Debian based
-    - Debian 13
-    - Ubuntu 24.04
+    - Debian 12 / 13
+    - Ubuntu 22.04 / 24.04
 
 
 ## usage
