@@ -78,7 +78,7 @@
 
         - name: define checksum for {{ system_architecture }} architecture
           ansible.builtin.set_fact:
-            __lego_checksum: "sha256:{{ _latest_checksum.checksum }}"
+            __lego_checksum: "sha256:{{ _latest_checksum.checksum | bodsch.certs.lego_checksum() }}"
           when:
             - _latest_checksum.rc == 0
             - _latest_checksum.checksum is defined
