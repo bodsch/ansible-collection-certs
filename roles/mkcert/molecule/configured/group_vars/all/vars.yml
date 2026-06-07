@@ -1,0 +1,18 @@
+---
+
+# re-create the CA when fewer than this many days of validity remain
+# (0 = only renew once the CA has actually expired)
+mkcert_renew_remaining_days: 5
+
+mkcert_certificates:
+  - domain: "example.org"
+    state: present
+    certificates:
+      - "example.org"
+      - "*.example.org"
+  - domain: "foo.bar"
+    state: absent
+    certificates:
+      - "*.foo.bar"
+
+...

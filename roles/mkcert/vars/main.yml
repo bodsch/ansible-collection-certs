@@ -1,0 +1,29 @@
+---
+
+mkcert_main_version: "{{ mkcert_version[0:3] }}"
+
+mkcert_install_path: /usr/local/opt/mkcert/{{ mkcert_version }}
+
+mkcert_delegate_to: localhost
+
+mkcert_local_tmp_directory: "{{
+  lookup('env', 'CUSTOM_LOCAL_TMP_DIRECTORY') |
+  default(lookup('env', 'HOME') ~ '/.cache/ansible/mkcert', true) }}/{{ mkcert_version }}"
+
+mkcert_dependencies: []
+
+mkcert_defaults_release:
+  download_url: https://github.com/FiloSottile/mkcert/releases
+  # https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-linux-amd64
+  file: "mkcert-v{{ mkcert_version }}-{{ ansible_facts.system | lower }}-{{ system_architecture }}"
+  binary: mkcert
+
+go_arch_map:
+  x86_64: 'amd64'
+  aarch64: 'arm64'
+  armv6l: 'armv6'
+  armv7l: 'armv7'
+
+system_architecture: "{{ go_arch_map[ansible_facts.architecture] | default(ansible_facts.architecture) }}"
+
+...
