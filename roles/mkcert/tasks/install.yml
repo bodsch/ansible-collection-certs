@@ -1,0 +1,61 @@
+---
+
+- name: user and group handling
+  when:
+    - mkcert_system_user != "root"
+  block:
+    - name: create mkcert group
+      ansible.builtin.group:
+        name: "{{ mkcert_system_user.group }}"
+        state: present
+        system: true
+
+    - name: create mkcert user
+      ansible.builtin.user:
+        name: "{{ mkcert_system_user.owner }}"
+        groups: "{{ mkcert_system_user.group }}"
+        append: true
+        shell: /usr/sbin/nologin
+        system: true
+        createhome: false
+        home: /nonexistent
+
+
+- name: create configuration directory
+  ansible.builtin.file:
+    path: "{{ mkcert_etc_directory }}"
+    state: directory
+    mode: "0755"
+
+- name: create install directory
+  ansible.builtin.file:
+    path: "{{ mkcert_install_path }}"
+    state: directory
+    owner: "{{ mkcert_system_user.owner }}"
+    group: "{{ mkcert_system_user.group }}"
+    mode: "0755"
+
+- name: deploy and activate mkcert version {{ mkcert_version }}
+  when:
+    - not running_in_check_mode
+  bodsch.core.deploy_and_activate:
+    src_dir: "{{ mkcert_local_tmp_directory }}"
+    install_dir: "{{ mkcert_install_path }}"
+    link_dir: "/usr/bin"
+    remote_src: "{{ ('true' if mkcert_direct_download else 'false') | bool }}"
+    owner: "{{ mkcert_system_user.owner }}"
+    group: "{{ mkcert_system_user.group }}"
+    mode: "0755"
+    items:
+      - name: "{{ mkcert_release.binary }}"
+        capability: "cap_net_raw+ep"
+
+- name: create custom fact file
+  when:
+    - not running_in_check_mode
+  bodsch.core.facts:
+    name: mkcert
+    facts:
+      version: "{{ mkcert_version }}"
+
+...

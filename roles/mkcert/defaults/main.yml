@@ -1,0 +1,36 @@
+---
+
+mkcert_version: 1.4.4
+
+mkcert_direct_download: false
+
+mkcert_release: {}
+
+mkcert_system_user:
+  owner: mkcert
+  group: mkcert
+
+mkcert_etc_directory: /etc/mkcert
+
+# directory used as CAROOT (where rootCA.pem / rootCA-key.pem live)
+mkcert_ca_directory: "{{ mkcert_etc_directory }}/CA"
+
+# wipe the CA and all issued certificates before re-creating them
+mkcert_force: false
+
+# re-create the CA when fewer than this many days of validity remain
+# (0 = only renew once the CA has actually expired)
+mkcert_renew_remaining_days: 0
+
+mkcert_certificates: []
+#  - domain: "example.org"
+#    state: present
+#    certificates:
+#      - "example.org"
+#      - "*.example.org"
+#  - domain: "foo.bar"
+#    state: absent
+#    certificates:
+#      - "*.foo.bar"
+
+...

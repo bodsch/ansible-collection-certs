@@ -1,0 +1,18 @@
+---
+
+- name: bootstrap mkcert CA and create TLS certificates
+  bodsch.certs.mkcert:
+    force: "{{ mkcert_force | bool }}"
+    config_directory: "{{ mkcert_etc_directory }}"
+    ca_directory: "{{ mkcert_ca_directory }}"
+    renew_remaining_days: "{{ mkcert_renew_remaining_days | int }}"
+    certificates: "{{ mkcert_certificates }}"
+    owner: "{{ mkcert_system_user.owner }}"
+    group: "{{ mkcert_system_user.group }}"
+  register: mkcert_result
+
+- name: expose created certificate paths
+  ansible.builtin.set_fact:
+    mkcert_certificate_paths: "{{ mkcert_result.certificate_paths | default([]) }}"
+
+...

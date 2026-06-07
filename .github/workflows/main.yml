@@ -64,6 +64,7 @@ jobs:
           - snakeoil
           - certbot
           - lego
+          - mkcert
 
     steps:
       - name: check out the codebase.

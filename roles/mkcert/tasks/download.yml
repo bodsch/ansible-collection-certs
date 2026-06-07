@@ -1,0 +1,173 @@
+---
+
+# - name: get latest release
+#   delegate_to: localhost
+#   become: false
+#   run_once: true
+#   when:
+#     - mkcert_version == "latest"
+#   block:
+#     - name: get latest release
+#       delegate_to: localhost
+#       become: false
+#       run_once: true
+#       bodsch.scm.github_latest:
+#         project: go-acme
+#         repository: mkcert
+#         user: "{{ lookup('env', 'GH_USER') | default(omit) }}"
+#         password: "{{ lookup('env', 'GH_TOKEN') | default(omit) }}"
+#       register: _latest_release
+#
+#     - name: re-define mkcert_version
+#       ansible.builtin.set_fact:
+#         mkcert_version: "{{ _latest_release.latest_release }}"
+
+- name: define download information
+  ansible.builtin.set_fact:
+    mkcert_release: "{{ mkcert_defaults_release | combine(mkcert_release, recursive=True) }}"
+
+- name: define delegate instance for download handling
+  ansible.builtin.set_fact:
+    mkcert_delegate_to: "{{ ansible_facts.host }}"
+    mkcert_local_tmp_directory: "{{
+        lookup('env', 'CUSTOM_LOCAL_TMP_DIRECTORY') |
+        default('/var/cache/ansible/mkcert', true) }}/{{ mkcert_version }}"
+  when:
+    - mkcert_direct_download
+
+- name: create download directory
+  become: false
+  delegate_to: "{{ mkcert_delegate_to }}"
+  run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
+  ansible.builtin.file:
+    path: "{{ mkcert_local_tmp_directory }}"
+    state: directory
+    mode: "0750"
+  check_mode: false
+
+- name: detect the downloaded mkcert archive
+  become: false
+  delegate_to: "{{ mkcert_delegate_to }}"
+  run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
+  ansible.builtin.stat:
+    path: "{{ mkcert_local_tmp_directory }}/{{ mkcert_release.file }}"
+  register: mkcert_stat_archive
+
+- name: download
+  when:
+    - not running_in_check_mode
+    - mkcert_stat_archive.stat is defined
+    - not mkcert_stat_archive.stat.exists | default('false')
+  block:
+
+    - name: resolve mkcert release
+      become: false
+      delegate_to: localhost
+      run_once: true
+      bodsch.scm.scm_release:
+        provider: "github"
+        project: FiloSottile
+        repository: mkcert
+        version: "{{ mkcert_version }}"          # "latest" | "2.53.0" | "v2.53.0"
+        architecture: "{{ ansible_facts.architecture }}"
+        system: "{{ ansible_facts.system }}"
+        user: "{{ lookup('env', 'GH_USER') | default(omit) }}"
+        password: "{{ lookup('env', 'GH_TOKEN') | default(omit) }}"
+      register: _release
+
+    - name: download mkcert archive
+      become: false
+      delegate_to: "{{ mkcert_delegate_to }}"
+      run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
+      ansible.builtin.get_url:
+        url: "{{ _release.download_url }}"
+        dest: "{{ mkcert_local_tmp_directory }}/{{ _release.file }}"
+        checksum: "{{ _release.checksum_string | default(omit) }}"
+        mode: "0640"
+      register: _download_archive
+      until: _download_archive is succeeded
+      retries: 5
+      delay: 2
+      check_mode: false
+
+  rescue:
+    - name: delete download directory
+      become: false
+      delegate_to: "{{ mkcert_delegate_to }}"
+      run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
+      ansible.builtin.file:
+        path: "{{ mkcert_local_tmp_directory }}"
+        state: absent
+
+    - name: exit with fail
+      ansible.builtin.fail:
+        msg: A serious error occurred when downloading the archive.
+
+- name: detect downloaded file
+  become: false
+  delegate_to: "{{ mkcert_delegate_to }}"
+  run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
+  ansible.builtin.stat:
+    path: "{{ mkcert_local_tmp_directory }}/{{ mkcert_release.file }}"
+  register: mkcert_stat_archive
+
+- name: detect extracted binary
+  become: false
+  delegate_to: "{{ mkcert_delegate_to }}"
+  run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
+  ansible.builtin.stat:
+    path: "{{ mkcert_local_tmp_directory }}/{{ mkcert_release.binary }}"
+  register: mkcert_stat_binary
+
+- name: extract mkcert archive
+  when:
+    - not running_in_check_mode
+    - mkcert_stat_archive.stat is defined
+    - mkcert_stat_archive.stat.exists | default('false') | bool
+    - mkcert_stat_archive.stat.mimetype in ["application/zip","application/gzip"]
+    - mkcert_stat_binary.stat is defined
+    - not mkcert_stat_binary.stat.exists | default('false') | bool
+  become: false
+  delegate_to: "{{ mkcert_delegate_to }}"
+  run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
+  ansible.builtin.unarchive:
+    src: "{{ mkcert_local_tmp_directory }}/{{ mkcert_release.file }}"
+    dest: "{{ mkcert_local_tmp_directory }}/"
+    copy: false
+    remote_src: "{{ 'true' if mkcert_direct_download else 'false' }}"
+
+- name: find extracted binaries
+  when:
+    - not running_in_check_mode
+  become: false
+  delegate_to: "{{ mkcert_delegate_to }}"
+  run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
+  ansible.builtin.find:
+    paths: "{{ mkcert_local_tmp_directory }}"
+    file_type: file
+    patterns:
+      - "mkcert*"
+    recurse: false
+  register: found_binaries
+  no_log: true
+
+- name: define extracted binary
+  when:
+    - found_binaries.files is defined
+    - found_binaries.files | count > 0
+  ansible.builtin.set_fact:
+    mkcert_stat_extracted_file: "{{ found_binaries.files | sort(attribute='path', reverse=True) | map(attribute='path') | list | first }}"
+
+- name: rename mkcert binary
+  when:
+    - not running_in_check_mode
+    - mkcert_stat_extracted_file | default('') | string | length > 0
+  become: false
+  delegate_to: "{{ mkcert_delegate_to }}"
+  run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
+  ansible.builtin.copy:
+    src: "{{ mkcert_stat_extracted_file }}"
+    dest: "{{ mkcert_local_tmp_directory }}/{{ mkcert_release.binary }}"
+    mode: "0755"
+    remote_src: "{{ ('true' if mkcert_direct_download else 'false') | bool }}"
+...
