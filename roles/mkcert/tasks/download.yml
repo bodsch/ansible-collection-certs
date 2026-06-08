@@ -1,27 +1,4 @@
 ---
-
-# - name: get latest release
-#   delegate_to: localhost
-#   become: false
-#   run_once: true
-#   when:
-#     - mkcert_version == "latest"
-#   block:
-#     - name: get latest release
-#       delegate_to: localhost
-#       become: false
-#       run_once: true
-#       bodsch.scm.github_latest:
-#         project: go-acme
-#         repository: mkcert
-#         user: "{{ lookup('env', 'GH_USER') | default(omit) }}"
-#         password: "{{ lookup('env', 'GH_TOKEN') | default(omit) }}"
-#       register: _latest_release
-#
-#     - name: re-define mkcert_version
-#       ansible.builtin.set_fact:
-#         mkcert_version: "{{ _latest_release.latest_release }}"
-
 - name: define download information
   ansible.builtin.set_fact:
     mkcert_release: "{{ mkcert_defaults_release | combine(mkcert_release, recursive=True) }}"
@@ -30,8 +7,8 @@
   ansible.builtin.set_fact:
     mkcert_delegate_to: "{{ ansible_facts.host }}"
     mkcert_local_tmp_directory: "{{
-        lookup('env', 'CUSTOM_LOCAL_TMP_DIRECTORY') |
-        default('/var/cache/ansible/mkcert', true) }}/{{ mkcert_version }}"
+      lookup('env', 'CUSTOM_LOCAL_TMP_DIRECTORY') |
+      default('/var/cache/ansible/mkcert', true) }}/{{ mkcert_version }}"
   when:
     - mkcert_direct_download
 
@@ -53,28 +30,35 @@
     path: "{{ mkcert_local_tmp_directory }}/{{ mkcert_release.file }}"
   register: mkcert_stat_archive
 
+- name: resolve mkcert release
+  become: false
+  delegate_to: localhost
+  run_once: true
+  bodsch.scm.scm_release:
+    provider: "github"
+    project: FiloSottile
+    repository: mkcert
+    version: "{{ mkcert_version }}" # "latest" | "2.53.0" | "v2.53.0"
+    architecture: "{{ ansible_facts.architecture }}"
+    system: "{{ ansible_facts.system }}"
+    user: "{{ lookup('env', 'GH_USER') | default(omit) }}"
+    password: "{{ lookup('env', 'GH_TOKEN') | default(omit) }}"
+  register: _release
+
+- name: redefine mkcert_version
+  ansible.builtin.set_fact:
+    mkcert_version: "{{ _release.version }}"
+  when:
+    - mkcert_version == "latest"
+    - _release.version is defined
+    - _release.version | length > 0
+
 - name: download
   when:
     - not running_in_check_mode
     - mkcert_stat_archive.stat is defined
     - not mkcert_stat_archive.stat.exists | default('false')
   block:
-
-    - name: resolve mkcert release
-      become: false
-      delegate_to: localhost
-      run_once: true
-      bodsch.scm.scm_release:
-        provider: "github"
-        project: FiloSottile
-        repository: mkcert
-        version: "{{ mkcert_version }}"          # "latest" | "2.53.0" | "v2.53.0"
-        architecture: "{{ ansible_facts.architecture }}"
-        system: "{{ ansible_facts.system }}"
-        user: "{{ lookup('env', 'GH_USER') | default(omit) }}"
-        password: "{{ lookup('env', 'GH_TOKEN') | default(omit) }}"
-      register: _release
-
     - name: download mkcert archive
       become: false
       delegate_to: "{{ mkcert_delegate_to }}"

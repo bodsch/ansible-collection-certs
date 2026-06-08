@@ -10,6 +10,7 @@ testinfra_hosts = infra_hosts(host_name="instance")
 
 # --- tests -----------------------------------------------------------------
 
+
 def test_directories(host, get_vars):
     """ """
     dirs = ["/usr/local/opt/mkcert"]
@@ -34,11 +35,11 @@ def test_version(host, get_vars):
     """ """
     distribution = host.system_info.distribution
     release = host.system_info.release
+    version = local_facts(host=host, fact="mkcert").get("version")
 
     print(f"distribution: {distribution}")
     print(f"release     : {release}")
-
-    version = local_facts(host).get("version")
+    print(f"version     : {version}")
 
     install_dir = get_vars.get("mkcert_install_path")
 
