@@ -1,34 +1,8 @@
 ---
+
 - name: define download information
   ansible.builtin.set_fact:
     mkcert_release: "{{ mkcert_defaults_release | combine(mkcert_release, recursive=True) }}"
-
-- name: define delegate instance for download handling
-  ansible.builtin.set_fact:
-    mkcert_delegate_to: "{{ ansible_facts.host }}"
-    mkcert_local_tmp_directory: "{{
-      lookup('env', 'CUSTOM_LOCAL_TMP_DIRECTORY') |
-      default('/var/cache/ansible/mkcert', true) }}/{{ mkcert_version }}"
-  when:
-    - mkcert_direct_download
-
-- name: create download directory
-  become: false
-  delegate_to: "{{ mkcert_delegate_to }}"
-  run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
-  ansible.builtin.file:
-    path: "{{ mkcert_local_tmp_directory }}"
-    state: directory
-    mode: "0750"
-  check_mode: false
-
-- name: detect the downloaded mkcert archive
-  become: false
-  delegate_to: "{{ mkcert_delegate_to }}"
-  run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
-  ansible.builtin.stat:
-    path: "{{ mkcert_local_tmp_directory }}/{{ mkcert_release.file }}"
-  register: mkcert_stat_archive
 
 - name: resolve mkcert release
   become: false
@@ -52,6 +26,33 @@
     - mkcert_version == "latest"
     - _release.version is defined
     - _release.version | length > 0
+
+- name: detect the downloaded mkcert archive
+  become: false
+  delegate_to: "{{ mkcert_delegate_to }}"
+  run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
+  ansible.builtin.stat:
+    path: "{{ mkcert_local_tmp_directory }}/{{ mkcert_release.file }}"
+  register: mkcert_stat_archive
+
+- name: define delegate instance for download handling
+  ansible.builtin.set_fact:
+    mkcert_delegate_to: "{{ ansible_facts.host }}"
+    mkcert_local_tmp_directory: "{{
+      lookup('env', 'CUSTOM_LOCAL_TMP_DIRECTORY') |
+      default('/var/cache/ansible/mkcert', true) }}/{{ mkcert_version }}"
+  when:
+    - mkcert_direct_download
+
+- name: create download directory
+  become: false
+  delegate_to: "{{ mkcert_delegate_to }}"
+  run_once: "{{ 'false' if mkcert_direct_download else 'true' }}"
+  ansible.builtin.file:
+    path: "{{ mkcert_local_tmp_directory }}"
+    state: directory
+    mode: "0750"
+  check_mode: false
 
 - name: download
   when:
