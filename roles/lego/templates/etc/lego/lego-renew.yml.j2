@@ -1,0 +1,21 @@
+# {{ ansible_managed }}
+#
+# Configuration for /usr/local/sbin/lego-renew.
+#
+# Layered loading order (later wins):
+#   1. script defaults (hardcoded in lego-renew)
+#   2. this file
+#   3. LEGO_RENEW_* environment variables
+#   4. command-line flags
+#
+# All keys are optional; the script ships sensible defaults. Overriding a
+# subset is fine. To rebuild this file with new values, re-run the role.
+
+lego_binary: "/usr/bin/lego"
+state_dir: "{{ lego_state_dir }}"
+issuers_dir: "{{ lego_issuers_dir }}"
+domains_dir: "{{ lego_domains_dir }}"
+
+renewal_days: {{ lego_renew_days }}
+key_type: "{{ lego_renew_key_type }}"
+lock_file: "{{ lego_renew_lock_file }}"

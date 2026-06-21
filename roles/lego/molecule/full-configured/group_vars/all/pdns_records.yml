@@ -1,0 +1,24 @@
+---
+
+pdns_zones:
+  - name: 'lab.local'
+
+    create_forward_zones: true
+    create_reverse_zones: true
+
+    name_servers:
+      - ns1
+
+    hosts:
+      - name: ns1
+        ip: 10.11.0.1
+      - name: mail001
+        ip: 10.11.0.10
+      - name: ca
+        ip: "{{ ansible_facts.default_ipv4.address }}"
+
+    mail_servers:
+      - name: mail001
+        preference: 10
+
+...

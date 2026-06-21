@@ -1,0 +1,36 @@
+---
+
+- name: Create custom directory tree
+  bodsch.core.directories:
+    # base_path: /srv/app
+    owner: "{{ lego_system_user }}"
+    group: "{{ lego_system_group }}"
+    mode: "0750"
+    paths:
+      - path: "{{ lego_config_dir }}"
+      - path: "{{ lego_issuers_dir }}"
+      - path: "{{ lego_domains_dir }}"
+      - path: "{{ lego_state_dir }}"
+        # owner: syslog
+        # group: adm
+        # mode: "0750"
+
+- name: create lego-renew configuration file
+  ansible.builtin.template:
+    src: etc/lego/lego-renew.yml.j2
+    dest: "{{ lego_config_dir }}/renew.yml"
+    owner: "{{ lego_system_user }}"
+    # group: "{{ lego_system_group }}"
+    mode: "0660"
+
+- name: configure issuers
+  ansible.builtin.include_tasks: issuers.yml
+  when:
+    - lego_issuers | default([]) | count > 0
+
+- name: configure domains
+  ansible.builtin.include_tasks: domains.yml
+  when:
+    - lego_tls_certificates | default([]) | count > 0
+
+...

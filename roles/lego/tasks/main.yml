@@ -6,7 +6,10 @@
 - name: download
   ansible.builtin.include_tasks: download.yml
 
-- name: prepare
+- name: install
   ansible.builtin.include_tasks: install.yml
+
+- name: configure
+  ansible.builtin.include_tasks: configure/main.yml
 
 ...
