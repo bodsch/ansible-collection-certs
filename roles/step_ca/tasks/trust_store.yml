@@ -1,0 +1,44 @@
+---
+# Install the CA root certificate into the host's system trust store.
+#
+# Why: LEGO_CA_CERTIFICATES only makes lego trust this CA for the ACME
+# connection. Other TLS clients on the machine — notably lego's DNS-provider
+# API client (e.g. PowerDNS over HTTPS), curl, package managers — validate
+# against the system trust store. Adding the root here covers all of them at
+# once, and makes the issuer's `ca_certificate` redundant.
+#
+# Platform support is keyed by package manager (apt / pacman) so Debian-based
+# distributions and Arch/Artix are both handled.
+
+- name: trust store / resolve platform settings
+  ansible.builtin.set_fact:
+    _step_ca_trust_store: "{{ _step_ca_trust_store_platform[ansible_facts.pkg_mgr] | default({}) }}"
+
+- name: trust store / assert the platform is supported
+  ansible.builtin.assert:
+    that:
+      - _step_ca_trust_store | length > 0
+    fail_msg: >-
+      step_ca_trust_store.enabled is true, but package manager
+      '{{ ansible_facts.pkg_mgr | default("unknown") }}' is not supported
+      (known: {{ _step_ca_trust_store_platform.keys() | list }}).
+    quiet: true
+
+- name: trust store / ensure trust tooling is installed
+  become: true
+  ansible.builtin.package:
+    name: "{{ _step_ca_trust_store.package }}"
+    state: present
+
+- name: trust store / install CA root as a trust anchor
+  become: true
+  ansible.builtin.copy:
+    src: "{{ step_ca_admin_connection.ca_root }}"
+    dest: "{{ _step_ca_trust_store.anchors_directory }}/{{ step_ca_trust_store.filename }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  notify: update system trust store
+
+...

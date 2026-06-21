@@ -24,4 +24,12 @@
   when:
     - not running_in_check_mode
 
+- name: update system trust store
+  become: true
+  ansible.builtin.command:
+    cmd: "{{ _step_ca_trust_store.update_command }}"
+  changed_when: true
+  when:
+    - not running_in_check_mode
+
 ...

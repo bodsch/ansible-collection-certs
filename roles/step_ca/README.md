@@ -252,6 +252,47 @@ The `ca_url` must use a hostname listed in the CA's DNS SANs (commonly
 `localhost`) — `0.0.0.0` would fail with a TLS hostname mismatch even
 when step-ca is bound to it.
 
+### `step_ca_trust_store`
+
+Optionally install the CA **root certificate** into the managed host's
+system trust store, so that *every* TLS client on the box trusts
+certificates issued by this CA — not only the components you wire up
+explicitly.
+
+The motivating case is [`lego`][lego]: its `LEGO_CA_CERTIFICATES` only
+covers the ACME connection to step-ca, while its DNS-provider API client
+(e.g. PowerDNS over HTTPS), `curl`, and package managers all validate
+against the system trust store. Enabling this covers them in one place and
+makes a per-issuer `ca_certificate` redundant.
+
+Disabled by default — opt in explicitly.
+
+```yaml
+step_ca_trust_store:
+  enabled: false
+  filename: "step-ca-root.crt"   # anchor file name; keep the .crt suffix
+```
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | bool | `false` | Install the root into the system trust store. |
+| `filename` | str | `step-ca-root.crt` | Anchor file name. Must end in `.crt` (required by `update-ca-certificates`). |
+
+The certificate copied is `step_ca_admin_connection.ca_root`
+(`{home}/.step/certs/root_ca.crt`). The platform is selected by package
+manager, so Debian-based and Arch-based systems are both covered:
+
+| `ansible_facts.pkg_mgr` | Anchor directory | Refresh command |
+| --- | --- | --- |
+| `apt` (Debian, Ubuntu) | `/usr/local/share/ca-certificates` | `update-ca-certificates` |
+| `pacman` (Arch, Artix) | `/etc/ca-certificates/trust-source/anchors` | `update-ca-trust` |
+
+The refresh command runs only when the anchor actually changes (via a
+handler), so repeated runs stay idempotent. An unsupported package manager
+fails the run with a clear assertion rather than silently skipping.
+
+[lego]: https://go-acme.github.io/lego/
+
 ### `step_ca_support_acme`
 
 Legacy/feature flag (currently unused by the runtime tasks). Keep
@@ -278,6 +319,8 @@ should not be reshuffled:
 5. **Provisioners** — created, updated or removed via the Admin API.
 6. **Admins** — additional admin users via the Admin API.
 7. **Smoke check** — `step_ca_info` confirms the resulting state.
+8. **System trust store** *(optional — only when `step_ca_trust_store.enabled`)* —
+   install the CA root as a host trust anchor and refresh the store.
 
 Between steps 2 and 3 the role flushes handlers and waits a second
 time on `/health` to absorb any service restart triggered by config
