@@ -1,14 +1,15 @@
 ---
 
 - name: manage step-ca admin users
-  bodsch.certs.step_ca_admin:
-    state:       "{{ item.state       | default('present') }}"
-    subject:     "{{ item.subject }}"
-    provisioner: "{{ item.provisioner | default('admin') }}"
-    type:        "{{ item.type        | default('ADMIN') }}"
-    api:         "{{ step_ca_admin_connection }}"
   when:
+    - not running_in_check_mode
     - step_ca_admins | default([]) | count > 0
+  bodsch.certs.step_ca_admin:
+    state: "{{ item.state | default('present') }}"
+    subject: "{{ item.subject }}"
+    provisioner: "{{ item.provisioner | default('admin') }}"
+    type: "{{ item.type | default('ADMIN') }}"
+    api: "{{ step_ca_admin_connection }}"
   loop: "{{ step_ca_admins | default([]) }}"
   loop_control:
     label: "{{ item.subject }}"

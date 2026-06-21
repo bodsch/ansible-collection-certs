@@ -1,6 +1,9 @@
 ---
 
 - name: manage ACME provisioners
+  when:
+    - not running_in_check_mode
+    - step_ca_authority.provisioners | default([]) | count > 0
   bodsch.certs.step_ca_provisioner:
     state: "{{ item.state | default('present') }}"
     name: "{{ item.name }}"

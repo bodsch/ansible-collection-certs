@@ -52,10 +52,11 @@
       ansible.builtin.meta: end_play
 
 - name: install dependencies
+  when:
+    - not running_in_check_mode
+    - step_ca_dependencies | default([]) | count > 0
   ansible.builtin.package:
     name: "{{ step_ca_dependencies }}"
     state: present
-  when:
-    - step_ca_dependencies | default([]) | count > 0
 
 ...

@@ -1,35 +1,36 @@
 ---
 
 - name: daemon-reload
+  when:
+    - not running_in_check_mode
+    - ansible_facts.service_mgr | lower == "systemd"
   become: true
   ansible.builtin.systemd:
     daemon_reload: true
     force: true
-  when:
-    - ansible_facts.service_mgr | lower == "systemd"
 
 - name: reload step-ca
+  when:
+    - not running_in_check_mode
   become: true
   ansible.builtin.service:
     name: step-ca
     state: reloaded
-  when:
-    - not running_in_check_mode
 
 - name: restart step-ca
+  when:
+    - not running_in_check_mode
   become: true
   ansible.builtin.service:
     name: step-ca
     state: restarted
-  when:
-    - not running_in_check_mode
 
 - name: update system trust store
+  when:
+    - not running_in_check_mode
   become: true
   ansible.builtin.command:
     cmd: "{{ _step_ca_trust_store.update_command }}"
   changed_when: true
-  when:
-    - not running_in_check_mode
 
 ...

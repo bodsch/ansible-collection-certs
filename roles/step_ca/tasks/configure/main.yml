@@ -1,6 +1,8 @@
 ---
 
 - name: create step directory
+  when:
+    - not running_in_check_mode
   ansible.builtin.file:
     path: "{{ step_ca_system.home }}/.step"
     state: directory
@@ -9,6 +11,8 @@
     mode: "0750"
 
 - name: create init password
+  when:
+    - not running_in_check_mode
   no_log: true
   ansible.builtin.copy:
     dest: "{{ step_ca_system.home }}/.step.password"
@@ -18,40 +22,45 @@
     mode: "0640"
 
 - name: stop servcie
+  when:
+    - not running_in_check_mode
+    - step_ca_force
   become: true
   no_log: true
   ignore_errors: true
   ansible.builtin.service:
     name: step-ca
     state: stopped
-  when:
-    - not running_in_check_mode
-    - step_ca_force
 
 - name: bootstrap service
-  ansible.builtin.include_tasks: configure/bootstrap.yml
   when:
+    - not running_in_check_mode
     - step_ca_authority.name | default('') | string | length > 0
     - step_ca_authority.dns | default([]) | count > 0
+  ansible.builtin.include_tasks: configure/bootstrap.yml
 
 - name: manage authority-wide policy
-  ansible.builtin.include_tasks: configure/policy.yml
   when:
+    - not running_in_check_mode
     - step_ca_authority_policy is defined
     - step_ca_authority.step_ca_authority_policy | default({}) | count > 0
+  ansible.builtin.include_tasks: configure/policy.yml
 
 - name: manage ACME provisioners
-  ansible.builtin.include_tasks: configure/provisioner.yml
   when:
+    - not running_in_check_mode
     - step_ca_authority.provisioners | default([]) | count > 0
+  ansible.builtin.include_tasks: configure/provisioner.yml
 
 - name: manage step-ca admin users
-  ansible.builtin.include_tasks: configure/admin_users.yml
   when:
+    - not running_in_check_mode
     - step_ca_admins | default([]) | count > 0
+  ansible.builtin.include_tasks: configure/admin_users.yml
 
 - name: smoke check
   when:
+    - not running_in_check_mode
     - step_ca_authority.name | default('') | string | length > 0
     - step_ca_authority.dns | default([]) | count > 0
   block:

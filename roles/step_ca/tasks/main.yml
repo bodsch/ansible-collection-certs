@@ -12,6 +12,7 @@
 - name: install CA root into the system trust store
   ansible.builtin.include_tasks: trust_store.yml
   when:
+    - not running_in_check_mode
     - step_ca_trust_store.enabled | default(false) | bool
 
 - name: service

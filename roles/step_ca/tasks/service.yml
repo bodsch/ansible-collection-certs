@@ -2,6 +2,7 @@
 
 - name: start and enable the step-ca service
   when:
+    - not running_in_check_mode
     - step_ca_authority.name | default('') | string | length > 0
     - step_ca_authority.dns | default([]) | count > 0
   ansible.builtin.service:
