@@ -46,12 +46,43 @@ def _check_challenge(challenge, prefix, errors):
             errors.append(
                 f"{prefix}.challenge: 'env' must be a mapping if set"
             )
+        resolvers = challenge.get("resolvers")
+        if resolvers is not None and (
+            not isinstance(resolvers, list)
+            or not all(_is_string(r) for r in resolvers)
+        ):
+            errors.append(
+                f"{prefix}.challenge: 'resolvers' must be a list of "
+                f"non-empty strings if set"
+            )
+        _check_propagation(challenge.get("propagation"), prefix, errors)
 
     if c_type == "http":
         if not _is_string(challenge.get("webroot")):
             errors.append(
                 f"{prefix}.challenge: 'webroot' is required when type is 'http'"
             )
+
+
+def _check_propagation(propagation, prefix, errors):
+    """Validate the optional ``challenge.propagation`` sub-dict."""
+    if propagation is None:
+        return
+    if not isinstance(propagation, dict):
+        errors.append(
+            f"{prefix}.challenge: 'propagation' must be a mapping if set"
+        )
+        return
+    for bool_key in ("disable_ans", "rns"):
+        if bool_key in propagation and not isinstance(propagation[bool_key], bool):
+            errors.append(
+                f"{prefix}.challenge.propagation: '{bool_key}' must be a boolean"
+            )
+    if "wait" in propagation and not _is_string(propagation["wait"]):
+        errors.append(
+            f"{prefix}.challenge.propagation: 'wait' must be a non-empty "
+            f"string (e.g. '15s')"
+        )
 
 
 def _check_eab(eab, prefix, errors):

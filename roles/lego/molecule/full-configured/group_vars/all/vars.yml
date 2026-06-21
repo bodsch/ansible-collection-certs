@@ -10,8 +10,19 @@ lego_issuers:
     challenge:
       type: dns
       provider: pdns
+      # PowerDNS auth listens on 127.0.0.1:5300 (non-standard port), so the
+      # system resolver cannot find the lab.local zone — point lego at it.
+      resolvers:
+        - "127.0.0.1:5300"
+      # The zone's NS (ns1.lab.local → 10.11.0.1) does not actually serve
+      # DNS in this single-host lab, so lego's authoritative propagation
+      # check would hang. Disable it; the recursive check via the resolver
+      # above (the real authoritative server) still confirms the record.
+      propagation:
+        disable_ans: true
       env:
-        PDNS_API_URL: "https://dns.lab.local:8081"
+        # PowerDNS API webserver speaks plain HTTP, not TLS.
+        PDNS_API_URL: "http://dns.lab.local:8081"
         PDNS_API_KEY: "{{ vault_pdns_api_key }}"
 
   # 2. Let's Encrypt prod (öffentlich)
@@ -30,7 +41,7 @@ lego_issuers:
       type: dns
       provider: pdns
       env:
-        PDNS_API_URL: "https://dns.lab.local:8081"
+        PDNS_API_URL: "http://dns.lab.local:8081"
         PDNS_API_KEY: "{{ vault_pdns_api_key }}"
 
   # 4. ZeroSSL — Beispiel mit EAB (jetzt noch nicht relevant, aber Schema steht)
@@ -54,9 +65,9 @@ lego_tls_certificates:
       cert: /etc/ssl/lab/fullchain.pem
       key:  /etc/ssl/lab/privkey.pem
       ca:   /etc/ssl/lab/chain.pem
-      owner: nginx
-      group: nginx
-    post_hook: systemctl reload nginx
+    #   owner: nginx
+    #   group: nginx
+    # post_hook: systemctl reload nginx
   #
   - domain: mail.lab.local
     issuer: step-ca-lab

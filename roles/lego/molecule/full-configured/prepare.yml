@@ -33,6 +33,7 @@
       ansible.builtin.package:
         name:
           - iproute2
+          - dog
         state: present
 
     - name: environment
@@ -52,6 +53,28 @@
   roles:
     - role: bodsch.dns.pdns
     - role: bodsch.dns.pdns_records
+    - role: bodsch.dns.dnsmasq
     - role: bodsch.certs.step_ca
+
+  post_tasks:
+    # NOTE: the container's resolver is set via `dns_servers` in molecule.yml
+    # (docker run --dns) — /etc/resolv.conf is a bind mount and cannot be
+    # rewritten from inside the container. dnsmasq (see group_vars) provides
+    # the split forwarding so step-ca's dns-01 validation resolves lab.local.
+    #
+    # step-ca writes its self-signed root to
+    # /opt/step-ca/.step/certs/root_ca.crt (readable only by the step-ca
+    # user). lego needs it as a trust anchor for the ACME endpoint; the
+    # issuer config (group_vars .../vars.yml) points LEGO_CA_CERTIFICATES
+    # at /etc/ssl/lab-root.crt, so publish a world-readable copy there.
+    - name: publish step-ca root certificate as lego trust anchor
+      become: true
+      ansible.builtin.copy:
+        src: "{{ step_ca_admin_connection.ca_root }}"
+        dest: /etc/ssl/lab-root.crt
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
 
 ...

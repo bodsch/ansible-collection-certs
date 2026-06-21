@@ -37,8 +37,12 @@ import json
 import logging
 import os
 import shutil
+import socket
+import ssl
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any, Optional
 
@@ -55,6 +59,9 @@ except ImportError as exc:
 
 
 log = logging.getLogger("lego-renew")
+
+#: Seconds to wait for the ACME directory during the pre-flight TLS probe.
+PREFLIGHT_TIMEOUT = 10
 
 
 # ---------------------------------------------------------------------------
@@ -281,6 +288,199 @@ def read_not_after(path: Path) -> Optional[dt.datetime]:
 
 
 # ---------------------------------------------------------------------------
+# Pre-flight checks
+# ---------------------------------------------------------------------------
+
+def _check_lego_binary(config: dict[str, Any]) -> Optional[str]:
+    """Verify the configured lego binary exists and is executable."""
+    binary = config["lego_binary"]
+    # A bare name is resolved via PATH; a path is checked as-is.
+    resolved = shutil.which(binary) if os.path.basename(binary) == binary else binary
+    if not resolved or not os.path.isfile(resolved):
+        return f"lego binary not found: {binary}"
+    if not os.access(resolved, os.X_OK):
+        return f"lego binary not executable: {resolved}"
+    return None
+
+
+def _check_directories(config: dict[str, Any]) -> list[str]:
+    """
+    Verify the working directories are usable.
+
+    ``state_dir`` must be writable (lego writes certs and the ACME account
+    there); ``issuers_dir`` / ``domains_dir`` must be readable directories.
+    No directory is created — the check stays side-effect free.
+    """
+    problems: list[str] = []
+
+    state_dir = Path(config["state_dir"])
+    if state_dir.exists():
+        if not state_dir.is_dir():
+            problems.append(f"state_dir is not a directory: {state_dir}")
+        elif not os.access(state_dir, os.W_OK):
+            problems.append(f"state_dir is not writable: {state_dir}")
+    else:
+        parent = state_dir.parent
+        if not (parent.is_dir() and os.access(parent, os.W_OK)):
+            problems.append(
+                f"state_dir does not exist and cannot be created: {state_dir}"
+            )
+
+    for key in ("issuers_dir", "domains_dir"):
+        d = Path(config[key])
+        if not d.is_dir():
+            problems.append(f"{key} is not a directory: {d}")
+
+    return problems
+
+
+def _check_issuer_ca_cert(issuer: Issuer) -> Optional[str]:
+    """
+    Validate the issuer's trust anchor: the file must exist, parse as an
+    X.509 certificate, and not be expired. Issuers without ca_certificate
+    (e.g. public CAs served from the system trust store) are skipped.
+    """
+    if not issuer.ca_certificate:
+        return None
+    path = Path(issuer.ca_certificate)
+    if not path.is_file():
+        return (
+            f"issuer {issuer.name!r}: ca_certificate not found: {path} "
+            f"(needed as TLS trust anchor for {issuer.server})"
+        )
+    try:
+        cert = x509.load_pem_x509_certificate(path.read_bytes())
+    except Exception as exc:                           # noqa: BLE001
+        return (
+            f"issuer {issuer.name!r}: ca_certificate is not a valid PEM "
+            f"certificate: {path} ({exc})"
+        )
+    not_after = (
+        cert.not_valid_after_utc
+        if hasattr(cert, "not_valid_after_utc")
+        else cert.not_valid_after.replace(tzinfo=dt.timezone.utc)
+    )
+    if not_after < dt.datetime.now(dt.timezone.utc):
+        return (
+            f"issuer {issuer.name!r}: ca_certificate expired on "
+            f"{not_after:%Y-%m-%d}: {path}"
+        )
+    return None
+
+
+def _probe_acme_server(issuer: Issuer) -> Optional[str]:
+    """
+    Open a TLS connection to the issuer's ACME directory and verify the
+    server certificate.
+
+    Mirrors lego's trust model: when ``ca_certificate`` is set, ONLY that
+    anchor is trusted (like ``LEGO_CA_CERTIFICATES``); otherwise the system
+    trust store is used. Returns None when the handshake + HTTP round-trip
+    succeed, else a description of what went wrong — catching the exact
+    "unknown authority" / unreachable cases before lego does.
+    """
+    try:
+        ctx = (
+            ssl.create_default_context(cafile=issuer.ca_certificate)
+            if issuer.ca_certificate
+            else ssl.create_default_context()
+        )
+    except ssl.SSLError as exc:
+        return (
+            f"issuer {issuer.name!r}: cannot load ca_certificate into trust "
+            f"store: {exc}"
+        )
+
+    req = urllib.request.Request(
+        issuer.server,
+        headers={"User-Agent": "lego-renew-preflight"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=PREFLIGHT_TIMEOUT, context=ctx):
+            return None
+    except urllib.error.HTTPError:
+        # The TLS handshake succeeded; a non-2xx status is not a trust issue.
+        return None
+    except urllib.error.URLError as exc:
+        reason = exc.reason
+        if isinstance(reason, ssl.SSLCertVerificationError):
+            detail = getattr(reason, "verify_message", None) or reason
+            anchor = issuer.ca_certificate or "<system trust store>"
+            return (
+                f"issuer {issuer.name!r}: TLS trust verification failed for "
+                f"{issuer.server}: {detail} (trust anchor: {anchor})"
+            )
+        return f"issuer {issuer.name!r}: cannot reach {issuer.server}: {reason}"
+    except socket.timeout:
+        return f"issuer {issuer.name!r}: timeout connecting to {issuer.server}"
+    except Exception as exc:                           # noqa: BLE001
+        return f"issuer {issuer.name!r}: error probing {issuer.server}: {exc}"
+
+
+def preflight(
+    config: dict[str, Any],
+    issuers: dict[str, Issuer],
+    domains: list[Domain],
+    *,
+    probe_tls: bool,
+) -> list[str]:
+    """
+    Validate prerequisites before any lego call.
+
+    Returns a list of human-readable problem descriptions; an empty list
+    means everything required is in place. Per-issuer checks are scoped to
+    issuers actually referenced by *domains*, so an unrelated issuer with a
+    missing trust anchor never blocks a run that does not use it.
+    """
+    problems: list[str] = []
+
+    problem = _check_lego_binary(config)
+    if problem:
+        problems.append(problem)
+
+    problems += _check_directories(config)
+
+    # Group referenced issuers → the domains that use them (for context).
+    referenced: dict[str, list[str]] = {}
+    for d in domains:
+        referenced.setdefault(d.issuer, []).append(d.domain)
+
+    for name, doms in sorted(referenced.items()):
+        issuer = issuers.get(name)
+        if issuer is None:
+            problems.append(
+                f"issuer {name!r} referenced by {', '.join(sorted(doms))} "
+                f"is not defined in {config['issuers_dir']}"
+            )
+            continue
+
+        problem = _check_issuer_ca_cert(issuer)
+        if problem:
+            # A broken trust anchor makes the TLS probe pointless.
+            problems.append(problem)
+            continue
+
+        if probe_tls:
+            problem = _probe_acme_server(issuer)
+            if problem:
+                problems.append(problem)
+
+    return problems
+
+
+def _report_preflight(problems: list[str]) -> int:
+    """Log the pre-flight outcome and map it to an exit code."""
+    if problems:
+        log.error("pre-flight check failed (%d problem(s)):", len(problems))
+        for p in problems:
+            log.error("  - %s", p)
+        return 2
+    log.info("pre-flight check passed")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # lego invocation
 # ---------------------------------------------------------------------------
 
@@ -309,6 +509,22 @@ def build_lego_argv(
         argv += ["--http", "--http.webroot", issuer.challenge["webroot"]]
     elif ctype == "dns":
         argv += ["--dns", issuer.challenge["provider"]]
+        # Optional explicit resolvers for zone detection + the propagation
+        # check. Needed when the authoritative DNS is not reachable via the
+        # system resolver — e.g. an internal server on a non-standard port.
+        for resolver in issuer.challenge.get("resolvers") or []:
+            argv += ["--dns.resolvers", str(resolver)]
+        # Optional propagation-check tuning. lego's default check queries the
+        # zone's authoritative nameservers directly on :53 — which fails when
+        # those NS records point at a host that does not actually serve DNS
+        # (split-horizon / internal labs). The knobs below relax that.
+        prop = issuer.challenge.get("propagation") or {}
+        if prop.get("disable_ans"):
+            argv.append("--dns.propagation-disable-ans")
+        if prop.get("rns"):
+            argv.append("--dns.propagation-rns")
+        if prop.get("wait"):
+            argv += ["--dns.propagation-wait", str(prop["wait"])]
     # else: rejected by the role's validate_issuers filter before we get here.
 
     if issuer.eab:
@@ -640,7 +856,12 @@ class _Lock:
         self.fd: Optional[int] = None
 
     def __enter__(self):
-        self.fd = os.open(self.path, os.O_CREAT | os.O_WRONLY, 0o600)
+        try:
+            self.fd = os.open(self.path, os.O_CREAT | os.O_WRONLY, 0o600)
+        except OSError as exc:
+            raise RuntimeError(
+                f"cannot open lock file {self.path}: {exc}"
+            ) from exc
         try:
             fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -687,6 +908,9 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
                    help="Process only this domain (default: all).")
     p.add_argument("--dry-run", action="store_true",
                    help="Show what would be done, perform no lego calls or hooks.")
+    p.add_argument("--preflight", action="store_true",
+                   help="Run pre-flight checks (lego binary, directories, issuer "
+                        "trust anchors, ACME reachability) and exit.")
     p.add_argument("--list", action="store_true",
                    help="List configured domains with cert status and exit.")
     p.add_argument("--json", action="store_true",
@@ -735,15 +959,30 @@ def main(argv: Optional[list[str]] = None) -> int:
             log.error("Domain %r not found in %s", args.domain, config["domains_dir"])
             return 2
 
+    if args.preflight:
+        problems = preflight(config, issuers, domains, probe_tls=True)
+        return _report_preflight(problems)
+
     if not domains:
         log.info("No domains configured — nothing to do.")
         return 0
 
-    try:
-        lock = _Lock(config["lock_file"]).__enter__()
-    except RuntimeError as exc:
-        log.error("%s", exc)
-        return 1
+    # Fail fast on missing prerequisites before taking the lock or calling
+    # lego. The network probe is skipped in dry-run to keep it side-effect free.
+    problems = preflight(config, issuers, domains, probe_tls=not args.dry_run)
+    if problems:
+        return _report_preflight(problems)   # logs each problem, returns 2
+    log.debug("pre-flight check passed")
+
+    # Dry-run performs no lego calls or hooks and writes nothing, so it
+    # needs no lock — and must not fail on an unwritable lock-file path.
+    lock = None
+    if not args.dry_run:
+        try:
+            lock = _Lock(config["lock_file"]).__enter__()
+        except RuntimeError as exc:
+            log.error("%s", exc)
+            return 1
 
     try:
         results: list[RenewalResult] = []
@@ -764,7 +1003,8 @@ def main(argv: Optional[list[str]] = None) -> int:
                     d.domain, "failed", False, error=str(exc),
                 ))
     finally:
-        lock.__exit__(None, None, None)
+        if lock is not None:
+            lock.__exit__(None, None, None)
 
     return _summarise(results)
 

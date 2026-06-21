@@ -33,9 +33,19 @@ platforms:
     networks:
       - name: lego
         ipv4_address: "10.31.0.1"
+    # System resolver for the container. The embedded Docker DNS forwards
+    # non-container queries here: 10.31.0.1 is the dnsmasq split forwarder
+    # (lab.local -> PowerDNS, set up in prepare); 1.1.1.1 is the fallback
+    # used while dnsmasq is still being installed during prepare.
+    dns_servers:
+      - "10.31.0.1"
+      - "1.1.1.1"
     etc_hosts:
       lego.lab.local: 10.31.0.1
       ca.lab.local: 10.31.0.1
+      dns.lab.local: 10.31.0.1
+      api.lab.local: 10.31.0.1
+      www.lab.local: 10.31.0.1
 
 provisioner:
   name: ansible
