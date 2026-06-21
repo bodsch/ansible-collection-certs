@@ -6,6 +6,7 @@ from helper.molecule import get_vars, infra_hosts, local_facts
 
 testinfra_hosts = infra_hosts(host_name="all")
 
+
 # --- tests -----------------------------------------------------------------
 
 # _facts = local_facts(host=host, fact="lego")
@@ -39,7 +40,7 @@ def test_version(host, get_vars):
     print(f"distribution: {distribution}")
     print(f"release     : {release}")
 
-    _facts = local_facts(host=host, fact="loki")
+    _facts = local_facts(host=host, fact="lego")
 
     version = _facts.get("version")
 

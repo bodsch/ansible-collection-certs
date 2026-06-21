@@ -39,7 +39,7 @@ def test_version(host, get_vars):
     print(f"distribution: {distribution}")
     print(f"release     : {release}")
 
-    _facts = local_facts(host=host, fact="loki")
+    _facts = local_facts(host=host, fact="lego")
 
     version = _facts.get("version")
 
