@@ -1,0 +1,55 @@
+#!/bin/bash
+#CERT_DOMAIN    Der Domain-Name, f  r den das Zertifikat angefordert wird
+#CERT_TOKEN     ACME-Challenge-Token (nicht direkt der TXT-Wert)
+#CERT_VALUE     Der TXT-Wert, den du in DNS setzen musst
+#CERT_TYPE      Der Challenge-Typ, z. ^` B. dns-01
+#CERT_TIMEOUT   Wie lange step auf den Challenge-Erfolg wartet (optional)
+
+#$CERTBOT_DOMAIN  ^f^r z. ^` B. vm.matrix.lan
+#$CERTBOT_VALIDATION  ^f^r ACME-Challenge-Token
+#$CERTBOT_TOKEN (optional)
+
+set -e
+set -x
+
+ACTION=${CERTBOT_AUTH_OUTPUT:-"present"}
+
+ZONE="matrix.lan"
+DNS_SERVER="192.168.0.4"
+TSIG_KEY="/etc/acme-updater.key"
+TSIG_NAME="acme-updater"
+
+record="_acme-challenge.${DOMAIN}."
+
+case "$ACTION" in
+  present)
+    echo "[+] Setze DNS-TXT-Record f  r $CERTBOT_DOMAIN"
+    nsupdate -k  "${TSIG_KEY}" <<EOF
+server 192.168.0.4
+zone ${CERTBOT_DOMAIN#*.}.
+update add _acme-challenge.${CERTBOT_DOMAIN}. 60 IN TXT "${CERTBOT_VALIDATION}"
+send
+EOF
+    sleep 15
+    ;;
+  cleanup)
+    echo "[-] Entferne DNS-TXT-Record f  r $CERTBOT_DOMAIN"
+    nsupdate -k  "${TSIG_KEY}" <<EOF
+server 192.168.0.4
+zone ${CERTBOT_DOMAIN#*.}.
+update delete _acme-challenge.${CERTBOT_DOMAIN}. TXT
+send
+EOF
+    ;;
+esac
+
+export REQUESTS_CA_BUNDLE=/opt/step/.step/certs/root_ca.crt
+
+certbot certonly   --manual   --preferred-challenges dns   --manual-auth-hook /acme-dns-set.sh   --manual-cleanup-hook /acme-dns-set.sh  --server https://localhost:9000/acme/acme/directory   --agree-tos --email foo@bar.com   --manual-public-ip-logging-ok  -v  -d "*.vm.matrix.lan" -d "vm.matrix.lan"
+nsupdate -D -k /etc/acme-updater.key <<EOF
+server 192.168.0.4
+zone matrix.lan
+update delete _acme-challenge.www.matrix.lan TXT
+update add _acme-challenge.www.matrix.lan 60 TXT "ddfdfdfsgfsdfdssfd"
+send
+EOF

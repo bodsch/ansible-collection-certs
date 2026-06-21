@@ -43,6 +43,12 @@
       - name: "{{ lego_release.binary }}"
         capability: "cap_net_raw+ep"
 
+- name: copy lego-renew.py
+  ansible.builtin.copy:
+    src: lego-renew.py
+    dest: /bin/lego-renew.py
+    mode: "0750"
+
 - name: create custom fact file
   when:
     - not running_in_check_mode

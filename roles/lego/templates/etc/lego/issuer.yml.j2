@@ -1,0 +1,4 @@
+---
+# {{ ansible_managed }}
+
+{{ issuer | to_nice_yaml(indent=2, sort_keys=false) | indent(0, False) }}

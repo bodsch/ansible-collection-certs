@@ -6,6 +6,7 @@ from helper.molecule import get_vars, infra_hosts, local_facts
 
 testinfra_hosts = infra_hosts(host_name="all")
 
+
 # --- tests -----------------------------------------------------------------
 
 # _facts = local_facts(host=host, fact="lego")

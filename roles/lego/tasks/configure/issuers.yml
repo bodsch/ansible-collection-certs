@@ -1,0 +1,37 @@
+---
+# Configure issuers — write one EnvironmentFile per issuer to
+# /etc/lego/issuers.d/<name>.env. The renewal script later picks
+# the right file based on the domain spec's `issuer` reference.
+
+- name: validate issuer definitions
+  ansible.builtin.assert:
+    that:
+      - _lego_issuer_errors | length == 0
+    fail_msg: |-
+      Invalid lego_issuers:
+      {{ _lego_issuer_errors | join('\n  - ') }}
+    success_msg: "lego_issuers validated"
+  vars:
+    _lego_issuer_errors: "{{ lego_issuers | bodsch.certs.validate_lego_issuers }}"
+
+- name: render issuer files
+  ansible.builtin.template:
+    src: etc/lego/issuer.yml.j2
+    dest: "{{ lego_issuers_dir }}/{{ item.name }}.yml"
+    owner: "{{ lego_system_user }}"
+    group: "{{ lego_system_group }}"
+    mode: "0600"
+  loop: "{{ lego_issuers }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    issuer: "{{ item }}"
+
+- name: prune stale issuer files
+  bodsch.certs.lego_prune:
+    path: "{{ lego_issuers_dir }}"
+    pattern: "*.yml"
+    suffix: ".yml"
+    keep: "{{ lego_issuers | map(attribute='name') | list }}"
+
+...

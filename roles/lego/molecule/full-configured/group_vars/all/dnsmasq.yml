@@ -1,0 +1,33 @@
+---
+
+# dnsmasq is the split forwarder that lets step-ca resolve the dns-01
+# _acme-challenge TXT records. step-ca validates via the system resolver,
+# not via lego's --dns.resolvers, so the system resolver must reach
+# PowerDNS.
+#
+# DNS path in this container (user-defined docker network):
+#   /etc/resolv.conf -> 127.0.0.11 (Docker embedded DNS, cannot be changed)
+#     embedded forwards non-container queries to `dns_servers` (molecule.yml):
+#       1. 10.31.0.1  -> dnsmasq (this role)
+#       2. 1.1.1.1    -> bootstrap fallback while dnsmasq is being installed
+#   dnsmasq:
+#       lab.local        -> PowerDNS authoritative on 127.0.0.1:5300
+#       everything else  -> 1.1.1.1  (NOT 127.0.0.11 — that would loop back
+#                                     through the embedded DNS into dnsmasq)
+#
+# dnsmasq listens on the container IP (10.31.0.1), not 127.0.0.1: the
+# embedded resolver must be able to reach it regardless of which namespace
+# it forwards from, and binding 0.0.0.0 would collide with 127.0.0.11:53.
+
+dnsmasq_interfaces:
+  listen_address: "10.31.0.1"
+  bind_only: true
+
+dnsmasq_server:
+  forwarders:
+    - domain: lab.local
+      address: "127.0.0.1#5300"
+  nameservers:
+    - "1.1.1.1"
+
+...
