@@ -1,0 +1,46 @@
+---
+
+step_ca_init_password: "{{ vault_step_ca_init_password }}"
+
+step_ca_force: false
+
+step_ca_admins:
+  - subject: alice@example.com
+    provisioner: admin
+    type: ADMIN
+  - subject: bob@example.com
+    provisioner: admin
+    type: SUPER_ADMIN
+
+step_ca_authority:
+  name: "Local Lab CA"
+  listen:
+    address: 0.0.0.0
+    port: 9000
+  dns:
+    - ca.lab.local        # erster Eintrag = primärer Hostname für API-Zugriff
+    - localhost           # Fallback für lokalen Zugriff vom CA-Host
+  provisioners:
+    - name: acme
+      type: ACME
+      challenges: [http-01, dns-01, tls-alpn-01]
+
+    - name: acme-dns
+      type: ACME
+      require_eab: false       # im OS step-ca nicht nutzbar
+      challenges: [dns-01]
+      claims:
+        tls_duration:
+          default: 720h
+          max: 2160h
+        disable_renewal: false
+        allow_renewal_after_expiry: false
+
+step_ca_authority_policy:
+  x509:
+    allow:
+      dns: ["*.lab.local", "lab.local", "step"]   # 'step' wegen Lock-Out-Schutz
+      ips: ["10.42.0.0/16"]
+    allow_wildcard_names: true
+
+...

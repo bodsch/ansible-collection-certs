@@ -1,0 +1,78 @@
+#jinja2: trim_blocks: True, lstrip_blocks: True
+{% set values = domain | bodsch.core.remove_empty_values %}
+---
+# {{ ansible_managed }}
+{% if values | count > 0 %}
+domain: {{ values.domain }}
+  {% if values.subdomains is defined and values.subdomains | count > 0 %}
+subdomains:
+    {% for subdomain in values.subdomains | bodsch.certs.as_list %}
+  - {{ subdomain }}
+    {% endfor %}
+  {% endif %}
+  {% if values.issuer is defined and values.issuer | string | length > 0 %}
+issuer: {{ values.issuer }}
+  {% endif %}
+  {% if values.install is defined and values.install | count > 0 %}
+    {% set _install = values.install | bodsch.core.remove_empty_values %}
+install:
+    {% if _install.cert %}
+  cert: {{ _install.cert }}
+    {% endif %}
+    {% if _install.key %}
+  key: {{ _install.key }}
+    {% endif %}
+    {% if _install.ca is defined and _install.ca | string | length > 0 %}
+  ca: {{ _install.ca }}
+    {% endif %}
+    {% if _install.cert_mode is defined and _install.cert_mode | string | length > 0 %}
+  cert_mode: "{{ _install.cert_mode }}"
+    {% else %}
+  cert_mode: "0644"
+    {% endif %}
+    {% if _install.key_mode is defined and _install.key_mode | string | length > 0 %}
+  key_mode: "{{ _install.key_mode }}"
+    {% else %}
+  key_mode: "0640"
+    {% endif %}
+    {% if _install.ca_mode is defined and _install.ca_mode | string | length > 0 %}
+  ca_mode: "{{ _install.ca_mode }}"
+    {% else %}
+  ca_mode: "0644"
+    {% endif %}
+    {% if _install.owner is defined and _install.owner | string | length > 0 %}
+  owner: {{ _install.owner }}
+    {% endif %}
+    {% if _install.group is defined and _install.group | string | length > 0 %}
+  group: {{ _install.group }}
+    {% endif %}
+  {% endif %}
+  {% if values.pre_hook is defined and values.pre_hook | string | length > 0 %}
+pre_hook:
+    {% for hook in values.pre_hook | bodsch.certs.as_list %}
+  - {{ hook }}
+    {% endfor %}
+  {% endif %}
+  {% if values.post_hook is defined and values.post_hook | string | length > 0 %}
+post_hook:
+    {% for hook in values.post_hook | bodsch.certs.as_list %}
+  - {{ hook }}
+    {% endfor %}
+  {% endif %}
+{% endif %}
+{#
+domain: mail.lab.local
+subdomains: []
+issuer: step-ca-lab
+install:
+  cert: /etc/postfix/tls/fullchain.pem
+  key: /etc/postfix/tls/privkey.pem
+  cert_mode: "0644"
+  key_mode: "0640"
+  ca_mode: "0644"
+pre_hook:
+  - test -d /etc/postfix/tls || mkdir -p /etc/postfix/tls
+post_hook:
+  - systemctl reload postfix
+  - systemctl reload dovecot
+#}

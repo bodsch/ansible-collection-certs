@@ -11,4 +11,12 @@ lego_system_user: lego
 
 lego_domain: domain.local
 
+lego_config_dir: /etc/lego
+lego_domains_dir: /etc/lego/domains.d
+lego_issuers_dir: /etc/lego/issuers.d
+lego_state_dir: /var/lib/lego
+lego_renew_days: 30
+lego_renew_key_type: ec256
+lego_renew_lock_file: /run/lego-renew.lock
+
 ...

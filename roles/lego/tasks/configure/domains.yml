@@ -1,0 +1,43 @@
+---
+# Render one YAML file per certificate entry to /etc/lego/domains.d/<domain>.yml.
+# The renewal script reads these and invokes `lego` with the right
+# issuer/sans/install paths.
+#
+# Files are world-unreadable (mode 0640) because install paths can hint at the
+# host's TLS topology; the lego service user reads them, optional readers in
+# the `lego` group are tolerated.
+
+- name: validate certificate definitions
+  ansible.builtin.assert:
+    that:
+      - _lego_cert_errors | length == 0
+    fail_msg: |-
+      Invalid lego_tls_certificates:
+      {{ _lego_cert_errors | join('\n  - ') }}
+    success_msg: "lego_tls_certificates validated"
+  vars:
+    _lego_cert_errors: >-
+      {{ lego_tls_certificates
+         | bodsch.certs.validate_lego_certificates(known_issuers=lego_issuers) }}
+
+- name: render domain files
+  ansible.builtin.template:
+    src: etc/lego/domain.yml.j2
+    dest: "{{ lego_domains_dir }}/{{ item.domain }}.yml"
+    owner: "{{ lego_system_user }}"
+    group: "{{ lego_system_group }}"
+    mode: "0640"
+  loop: "{{ lego_tls_certificates }}"
+  loop_control:
+    label: "{{ item.domain }}"
+  vars:
+    domain: "{{ item }}"
+
+- name: prune stale domain files
+  bodsch.certs.lego_prune:
+    path: "{{ lego_domains_dir }}"
+    pattern: "*.yml"
+    suffix: ".yml"
+    keep: "{{ lego_tls_certificates | map(attribute='domain') | list }}"
+
+...
