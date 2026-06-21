@@ -4,6 +4,12 @@ step_ca_init_password: "{{ vault_step_ca_init_password }}"
 
 step_ca_force: false
 
+# Install the CA root into the system trust store so every TLS client on the
+# host trusts it — e.g. lego's PowerDNS API client would then work over HTTPS
+# too, not just the ACME connection (which uses LEGO_CA_CERTIFICATES).
+step_ca_trust_store:
+  enabled: true
+
 step_ca_admins:
   - subject: alice@example.com
     provisioner: admin
