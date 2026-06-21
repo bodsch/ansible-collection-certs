@@ -114,7 +114,7 @@
   delegate_to: "{{ lego_delegate_to }}"
   run_once: "{{ 'false' if lego_direct_download else 'true' }}"
   ansible.builtin.stat:
-    path: "{{ lego_local_tmp_directory }}/{{ lego_release.file }}"
+    path: "{{ lego_local_tmp_directory }}/{{ _release.file }}"
   register: lego_stat_archive
 
 - name: detect extracted binary
