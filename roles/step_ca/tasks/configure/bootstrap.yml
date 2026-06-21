@@ -1,6 +1,10 @@
 ---
 
 - name: bootstrap step-ca
+  when:
+    - not running_in_check_mode
+    - step_ca_authority.name | default('') | string | length > 0
+    - step_ca_authority.dns | default([]) | count > 0
   remote_user: "{{ step_ca_system.owner }}"
   bodsch.certs.step_ca:
     state: init
@@ -16,9 +20,8 @@
     config:         "{{ step_ca_authority.config | default({}) }}"
   notify:
     - restart step-ca
-  when:
-    - step_ca_authority.name | default('') | string | length > 0
-    - step_ca_authority.dns | default([]) | count > 0
 
 - name: ensure step-ca is running before talking to the API
+  when:
+    - not running_in_check_mode
   ansible.builtin.meta: flush_handlers

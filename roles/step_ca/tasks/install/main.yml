@@ -1,12 +1,14 @@
 ---
 
 - name: debian
-  ansible.builtin.include_tasks: install/debian.yml
   when:
+    - not running_in_check_mode
     - ansible_facts.os_family | lower == "debian"
+  ansible.builtin.include_tasks: install/debian.yml
 
 - name: update package cache
   when:
+    - not running_in_check_mode
     - ansible_facts.distribution | lower == "archlinux"
   become: true
   ansible.builtin.package:
@@ -19,6 +21,7 @@
 
 - name: user and group handling
   when:
+    - not running_in_check_mode
     - step_ca_system.owner != "root" or step_ca_system.group != "root"
   block:
     - name: create step group
@@ -42,6 +45,8 @@
         - step_ca_system.owner != "root"
 
 - name: create log directory
+  when:
+    - not running_in_check_mode
   ansible.builtin.file:
     path: /var/log/step-ca
     state: directory
@@ -51,8 +56,8 @@
 
 - name: systemd
   when:
-    - ansible_facts.service_mgr | lower == "systemd"
     - not running_in_check_mode
+    - ansible_facts.service_mgr | lower == "systemd"
   block:
     - name: create step system configuration
       ansible.builtin.template:

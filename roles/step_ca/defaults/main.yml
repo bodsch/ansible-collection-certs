@@ -58,4 +58,14 @@ step_ca_admin_connection:
 
 step_ca_authority_policy: {}
 
+# Optionally install the CA root certificate into the host's system trust
+# store. LEGO_CA_CERTIFICATES only makes lego trust this CA for the ACME
+# connection; other TLS clients on the box — notably lego's DNS-provider
+# API client (e.g. PowerDNS over HTTPS), curl, package managers — validate
+# against the system trust store. Enable this to cover them all at once.
+# Supported package managers: apt (Debian/Ubuntu) and pacman (Arch/Artix).
+step_ca_trust_store:
+  enabled: false
+  filename: "step-ca-root.crt"   # must end in .crt for update-ca-certificates
+
 ...

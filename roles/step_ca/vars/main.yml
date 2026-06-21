@@ -10,4 +10,17 @@ step_ca_defaults_directory: /etc/default
 
 systemd_lib_directory: /lib/systemd/system
 
+# System trust-store integration, keyed by package manager so Debian/Ubuntu
+# (apt) and Arch/Artix (pacman) are both covered without relying on the
+# per-distribution vars files. See tasks/trust_store.yml.
+_step_ca_trust_store_platform:
+  apt:
+    anchors_directory: /usr/local/share/ca-certificates
+    update_command: update-ca-certificates
+    package: ca-certificates
+  pacman:
+    anchors_directory: /etc/ca-certificates/trust-source/anchors
+    update_command: update-ca-trust
+    package: ca-certificates
+
 ...
