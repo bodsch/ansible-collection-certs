@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
 
 # (c) 2022-2026, Bodo Schulz <bodo@boone-schulz.de>
 
@@ -22,9 +21,7 @@ Rationale:
     CRUD, policies, EAB keys) is handled via dedicated API-based modules.
 """
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
 
 import json
 import os

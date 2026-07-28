@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
 """
@@ -8,9 +7,7 @@ Validates a list of ACME issuer definitions and returns a list of
 human-readable error strings. An empty list means everything is valid.
 """
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
 
 import re
 
@@ -157,7 +154,7 @@ def validate_issuers(issuers):
     return errors
 
 
-class FilterModule(object):
+class FilterModule:
     """Ansible filter plugin entry point."""
 
     def filters(self):

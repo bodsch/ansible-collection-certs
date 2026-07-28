@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
 
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
@@ -25,7 +24,6 @@ helper treats "missing on server" as "equal to default in desired" so
 that wiring through the same dict on a second run produces no PUT.
 """
 
-from __future__ import absolute_import, division, print_function
 
 import json
 import os

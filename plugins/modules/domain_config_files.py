@@ -1,11 +1,9 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
 
 # (c) 2021-2024, Bodo Schulz <bodo@boone-schulz.de>
 # GNU General Public License version 3 (see LICENSE or https://opensource.org/license/gpl-3-0)
 # SPDX-License-Identifier: GPL-3.0
 
-from __future__ import absolute_import, division, print_function
 
 import os
 import shutil
@@ -116,7 +114,7 @@ state:
 # ---------------------------------------------------------------------------------------
 
 
-class DomainConfigs(object):
+class DomainConfigs:
     """ """
 
     def __init__(self, module):
@@ -128,7 +126,7 @@ class DomainConfigs(object):
         self.mode = module.params.get("mode")
 
         pid = os.getpid()
-        self.tmp_directory = os.path.join("/run/.ansible", f"certbot.{str(pid)}")
+        self.tmp_directory = os.path.join("/run/.ansible", f"certbot.{pid!s}")
 
     def run(self):
         """ """

@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
 
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
@@ -15,15 +14,12 @@ C(/etc/lego/issuers.d/) and C(/etc/lego/domains.d/) after the user
 removes an issuer or domain from the role variables.
 """
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
 
 import glob
 import os
 
 from ansible.module_utils.basic import AnsibleModule
-
 
 DOCUMENTATION = r"""
 ---

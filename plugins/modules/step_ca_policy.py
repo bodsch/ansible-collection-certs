@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
 
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
@@ -16,9 +15,7 @@ Ansible conventions); the module translates them to the camelCase
 shape step-ca's protojson handlers expect on the wire.
 """
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
 
 import os
 from urllib.parse import urlparse

@@ -1,11 +1,9 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 
 # (c) 2021-2023, Bodo Schulz <bodo@boone-schulz.de>
 # Apache-2.0 (see LICENSE or https://opensource.org/license/apache-2-0/)
 # SPDX-License-Identifier: Apache-2.0
 
-from __future__ import absolute_import, print_function
 
 import os
 import re
@@ -153,7 +151,7 @@ size:
 # ---------------------------------------------------------------------------------------
 
 
-class SnakeoilOpenssl(object):
+class SnakeoilOpenssl:
     """ """
 
     module = None
@@ -322,8 +320,8 @@ class SnakeoilOpenssl(object):
         rc, out, err = self.module.run_command(args, check_rc=True)
         # self.module.log(msg=f"  rc : '{rc}'")
         if rc != 0:
-            self.module.log(msg=f"  out: '{str(out)}'")
-            self.module.log(msg=f"  err: '{str(err)}'")
+            self.module.log(msg=f"  out: '{out!s}'")
+            self.module.log(msg=f"  err: '{err!s}'")
 
         return (rc, out, err)
 

@@ -1,8 +1,7 @@
 # python 3 headers, required if submitting to Ansible
 
-from __future__ import absolute_import, division, print_function
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # from ansible.parsing.yaml.objects import AnsibleUnicode
 from ansible.utils.display import Display
@@ -10,10 +9,10 @@ from ansible.utils.display import Display
 display = Display()
 
 
-class FilterModule(object):
+class FilterModule:
     """Ansible filter plugin for managing and transforming certificate data structures."""
 
-    def filters(self) -> Dict[str, Any]:
+    def filters(self) -> dict[str, Any]:
         """
         Registers available filters for Ansible.
 
@@ -26,7 +25,7 @@ class FilterModule(object):
             "flatten_domain_list": self.flatten_domain_list,
         }
 
-    def certificates(self, data: Optional[Dict[str, Any]] = None) -> List[str]:
+    def certificates(self, data: dict[str, Any] | None = None) -> list[str]:
         """
         Return a list of domain names for which certificates do not exist.
 
@@ -43,7 +42,7 @@ class FilterModule(object):
             display.v("No valid data provided to 'certificates'.")
             return []
 
-        result: List[str] = []
+        result: list[str] = []
         results = data.get("results", [])
 
         for entry in results:
@@ -61,7 +60,7 @@ class FilterModule(object):
 
         return result
 
-    def domain_list(selfself, data: List[Dict[str, Any]], domain: str) -> List[str]:
+    def domain_list(self, data: list[dict[str, Any]], domain: str) -> list[str]:
         """
         Return a list of all domains and subdomains for a specific domain.
 
@@ -72,7 +71,7 @@ class FilterModule(object):
         Returns:
             A sorted list of unique domains and subdomains.
         """
-        domain_list: List[str] = []
+        domain_list: list[str] = []
 
         for entry in data:
             if entry.get("domain") == domain:
@@ -88,8 +87,8 @@ class FilterModule(object):
         return sorted(set(domain_list))
 
     def flatten_domain_list(
-        self, data: List[Dict[str, Any]], with_subdomains: bool = False
-    ) -> List[str]:
+        self, data: list[dict[str, Any]], with_subdomains: bool = False
+    ) -> list[str]:
         """
         Flatten a complex domain list into a single list of domains.
 
@@ -100,7 +99,7 @@ class FilterModule(object):
         Returns:
             A flattened list of all domains and (optionally) subdomains.
         """
-        domains: List[str] = []
+        domains: list[str] = []
 
         for entry in data:
             domain_name = entry.get("domain")

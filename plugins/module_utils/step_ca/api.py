@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
 """
@@ -30,9 +29,7 @@ calling modules don't have to know about them:
   the same client instance.
 """
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
 
 from urllib.parse import urljoin
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
 """
@@ -14,9 +13,7 @@ in downstream code:
     ""                                -> []
 """
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
 
 
 def as_list(value):
@@ -28,7 +25,7 @@ def as_list(value):
     return [value]
 
 
-class FilterModule(object):
+class FilterModule:
     """Ansible filter plugin entry."""
 
     def filters(self):

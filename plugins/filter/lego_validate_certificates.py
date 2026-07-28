@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
 """
@@ -15,9 +14,7 @@ detection become trivial), and reports all problems at once instead
 of failing on the first.
 """
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
 
 import re
 
@@ -170,7 +167,7 @@ def validate_certificates(certificates, known_issuers=None):
     return errors
 
 
-class FilterModule(object):
+class FilterModule:
     """Ansible filter plugin entry point."""
 
     def filters(self):

@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
 
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
@@ -15,9 +14,7 @@ Result keys are exactly the ones requested via I(gather) — unrequested
 keys are not present in the return value.
 """
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
 
 import os
 from urllib.parse import urlparse

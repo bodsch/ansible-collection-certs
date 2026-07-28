@@ -1,10 +1,8 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 
 # (c) 2021-2022, Bodo Schulz <bodo@boone-schulz.de>
 # BSD 2-clause (see LICENSE or https://opensource.org/licenses/BSD-2-Clause)
 
-from __future__ import absolute_import, print_function
 
 import os
 import re
@@ -130,7 +128,7 @@ class Month(Enum):
     Dec = "12"
 
 
-class SnakeoilDate(object):
+class SnakeoilDate:
     """
     Main Class
     """
@@ -238,7 +236,7 @@ class SnakeoilDate(object):
         try:
             with open(certificate, "rb") as f:
                 data = f.read()
-        except (IOError, OSError) as e:
+        except OSError as e:
             msg = f"Error while reading pem file from disk: {e}"
             self.module.log(msg)
             self.module.fail_json(msg)
@@ -301,16 +299,15 @@ class SnakeoilDate(object):
                 pass
             else:  # if a defined format is found, datetime object will be returned
                 return True
-        else:  # all formats done, none did work...
-            return False  # could also raise an exception here
+        return False  # could also raise an exception here
 
     def _exec(self, args):
         """ """
         rc, out, err = self.module.run_command(args, check_rc=False)
         # self.module.log(msg=f"  rc : '{rc}'")
         if rc != 0:
-            self.module.log(msg=f"  out: '{str(out)}'")
-            self.module.log(msg=f"  err: '{str(err)}'")
+            self.module.log(msg=f"  out: '{out!s}'")
+            self.module.log(msg=f"  err: '{err!s}'")
 
         return (rc, out, err)
 

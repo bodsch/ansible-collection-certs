@@ -1,11 +1,14 @@
 ansible-lint
+cryptography
 docker
 dnspython
 flake8
 molecule
 molecule-plugins[docker]
 netaddr
+pytest
 pytest-testinfra
+requests
 tox
 tox-gh-actions
 yamllint

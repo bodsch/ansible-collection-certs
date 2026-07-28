@@ -1,22 +1,18 @@
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
-
 # (c) 2022-2024, Bodo Schulz <bodo@boone-schulz.de>
 
-from __future__ import absolute_import, print_function
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ansible.utils.display import Display
 
 display = Display()
 
 
-class FilterModule(object):
+class FilterModule:
     """Ansible filter plugin providing TLS validation and directory extraction helpers."""
 
-    def filters(self) -> Dict[str, Any]:
+    def filters(self) -> dict[str, Any]:
         """
         Register available filters for Ansible.
 
@@ -28,7 +24,7 @@ class FilterModule(object):
             "tls_directory": self.tls_directory,
         }
 
-    def support_tls(self, data: Optional[Dict[str, Any]]) -> bool:
+    def support_tls(self, data: dict[str, Any] | None) -> bool:
         """
         Validate whether a given configuration supports TLS.
 
@@ -54,7 +50,12 @@ class FilterModule(object):
                       ca_file: /etc/coolwsd/ca-chain.cert.pem
 
         Returns:
-            True if TLS is enabled and all required files exist, False otherwise.
+            True if TLS is enabled and all required file paths (ca_file,
+            cert_file, key_file) are configured, False otherwise.
+
+        Note:
+            This is a configuration check only; it does not verify that the
+            referenced files exist on disk.
         """
         display.v(f"support_tls({data})")
 
@@ -76,7 +77,7 @@ class FilterModule(object):
         display.v(f"support_tls -> {result}")
         return bool(result)
 
-    def tls_directory(self, data: Optional[Dict[str, Any]]) -> Optional[str]:
+    def tls_directory(self, data: dict[str, Any] | None) -> str | None:
         """
         Extract the common directory containing all TLS files.
 
@@ -102,10 +103,10 @@ class FilterModule(object):
         cert_file = ssl_data.get("cert_file")
         key_file = ssl_data.get("key_file")
 
-        result: Optional[str] = None
+        result: str | None = None
 
         if ca_file and cert_file and key_file:
-            directories: List[str] = list(
+            directories: list[str] = list(
                 {os.path.dirname(path) for path in [ca_file, cert_file, key_file]}
             )
 

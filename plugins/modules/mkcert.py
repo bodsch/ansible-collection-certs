@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
 
 # (c) 2022-2026, Bodo Schulz <bodo@boone-schulz.de>
 # Apache-2.0 (see LICENSE or https://opensource.org/license/apache-2-0/)
@@ -21,9 +20,7 @@ variable so the module is fully self-contained and does not depend on the
 per-user default locations mkcert would otherwise pick.
 """
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
 
 import os
 import shutil

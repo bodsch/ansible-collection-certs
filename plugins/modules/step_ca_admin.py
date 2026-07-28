@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
 
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
@@ -17,9 +16,7 @@ provisioner endpoints which use protojson and accept enum strings. The
 module exposes a string-based interface and translates internally.
 """
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
 
 import os
 from urllib.parse import urlparse

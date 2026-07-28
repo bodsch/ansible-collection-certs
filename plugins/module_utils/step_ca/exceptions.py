@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
 """
@@ -24,9 +23,7 @@ The hierarchy is intentionally shallow:
   unexpected JSON shape from a public endpoint).
 """
 
-from __future__ import absolute_import, division, print_function
 
-__metaclass__ = type
 
 
 class StepCAError(Exception):
@@ -67,7 +64,7 @@ class StepCAAPIError(StepCAError):
     """
 
     def __init__(self, message, status_code=None, payload=None):
-        super(StepCAAPIError, self).__init__(message)
+        super().__init__(message)
         self.status_code = status_code
         self.payload = payload
 

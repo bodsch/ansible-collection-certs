@@ -1,12 +1,8 @@
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
-
 # (c) 2026, Bodo Schulz <bodo@boone-schulz.de>
 
-from __future__ import absolute_import, print_function
 
 import re
-from typing import Any, Dict
+from typing import Any
 
 from ansible.utils.display import Display
 
@@ -15,10 +11,10 @@ display = Display()
 CHECKSUM_RE = re.compile(r"^(?P<checksum>[a-fA-F0-9]+)\s+.*\.tar\.gz$")
 
 
-class FilterModule(object):
-    """"""
+class FilterModule:
+    """Ansible filter plugin exposing the ``lego_checksum`` helper."""
 
-    def filters(self) -> Dict[str, Any]:
+    def filters(self) -> dict[str, Any]:
         """
         Register available filters for Ansible.
 

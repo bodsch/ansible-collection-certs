@@ -1,11 +1,9 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
 
 # (c) 2021-2024, Bodo Schulz <bodo@boone-schulz.de>
 # GNU General Public License version 3 (see LICENSE or https://opensource.org/license/gpl-3-0)
 # SPDX-License-Identifier: GPL-3.0
 
-from __future__ import absolute_import, division, print_function
 
 import os
 
@@ -142,7 +140,7 @@ certificate_miss:
 # ---------------------------------------------------------------------------------------
 
 
-class DomainCerts(object):
+class DomainCerts:
     """ """
 
     def __init__(self, module):
@@ -169,7 +167,6 @@ class DomainCerts(object):
                     misses.append(domain)
             else:
                 self.module.log(msg=f"ERROR: missing name in {cert}")
-                pass
 
         return dict(
             changed=False,
