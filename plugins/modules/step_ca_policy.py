@@ -15,8 +15,6 @@ Ansible conventions); the module translates them to the camelCase
 shape step-ca's protojson handlers expect on the wire.
 """
 
-
-
 import os
 from urllib.parse import urlparse
 

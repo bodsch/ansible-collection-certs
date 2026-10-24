@@ -7,8 +7,6 @@ Validates a list of ACME issuer definitions and returns a list of
 human-readable error strings. An empty list means everything is valid.
 """
 
-
-
 import re
 
 _NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
@@ -28,8 +26,7 @@ def _check_challenge(challenge, prefix, errors):
     c_type = challenge.get("type")
     if c_type not in ("dns", "http"):
         errors.append(
-            f"{prefix}.challenge: 'type' must be 'dns' or 'http', "
-            f"got {c_type!r}"
+            f"{prefix}.challenge: 'type' must be 'dns' or 'http', " f"got {c_type!r}"
         )
         return
 
@@ -40,13 +37,10 @@ def _check_challenge(challenge, prefix, errors):
             )
         env = challenge.get("env")
         if env is not None and not isinstance(env, dict):
-            errors.append(
-                f"{prefix}.challenge: 'env' must be a mapping if set"
-            )
+            errors.append(f"{prefix}.challenge: 'env' must be a mapping if set")
         resolvers = challenge.get("resolvers")
         if resolvers is not None and (
-            not isinstance(resolvers, list)
-            or not all(_is_string(r) for r in resolvers)
+            not isinstance(resolvers, list) or not all(_is_string(r) for r in resolvers)
         ):
             errors.append(
                 f"{prefix}.challenge: 'resolvers' must be a list of "
@@ -66,9 +60,7 @@ def _check_propagation(propagation, prefix, errors):
     if propagation is None:
         return
     if not isinstance(propagation, dict):
-        errors.append(
-            f"{prefix}.challenge: 'propagation' must be a mapping if set"
-        )
+        errors.append(f"{prefix}.challenge: 'propagation' must be a mapping if set")
         return
     for bool_key in ("disable_ans", "rns"):
         if bool_key in propagation and not isinstance(propagation[bool_key], bool):
@@ -91,9 +83,7 @@ def _check_eab(eab, prefix, errors):
         return
     for required in ("kid", "hmac_key"):
         if not _is_string(eab.get(required)):
-            errors.append(
-                f"{prefix}.eab: missing or non-string '{required}'"
-            )
+            errors.append(f"{prefix}.eab: missing or non-string '{required}'")
 
 
 def validate_issuers(issuers):
@@ -123,9 +113,7 @@ def validate_issuers(issuers):
         if not _is_string(name):
             errors.append(f"{prefix}: missing or non-string 'name'")
         elif not _NAME_RE.match(name):
-            errors.append(
-                f"{prefix}: name {name!r} must match ^[a-z0-9][a-z0-9_-]*$"
-            )
+            errors.append(f"{prefix}: name {name!r} must match ^[a-z0-9][a-z0-9_-]*$")
         elif name in seen_names:
             errors.append(f"{prefix}: duplicate name {name!r}")
         else:
@@ -135,18 +123,14 @@ def validate_issuers(issuers):
         if not _is_string(server):
             errors.append(f"{prefix}: missing or non-string 'server'")
         elif not _SERVER_RE.match(server):
-            errors.append(
-                f"{prefix}: server {server!r} must start with 'https://'"
-            )
+            errors.append(f"{prefix}: server {server!r} must start with 'https://'")
 
         if not _is_string(issuer.get("email")):
             errors.append(f"{prefix}: missing or non-string 'email'")
 
         ca_cert = issuer.get("ca_certificate")
         if ca_cert is not None and not _is_string(ca_cert):
-            errors.append(
-                f"{prefix}: 'ca_certificate' must be a string if set"
-            )
+            errors.append(f"{prefix}: 'ca_certificate' must be a string if set")
 
         _check_challenge(issuer.get("challenge"), prefix, errors)
         _check_eab(issuer.get("eab"), prefix, errors)

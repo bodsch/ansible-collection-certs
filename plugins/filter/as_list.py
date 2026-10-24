@@ -14,8 +14,6 @@ in downstream code:
 """
 
 
-
-
 def as_list(value):
     """Return ``value`` as a list."""
     if value is None or value == "":

@@ -14,8 +14,6 @@ C(/etc/lego/issuers.d/) and C(/etc/lego/domains.d/) after the user
 removes an issuer or domain from the role variables.
 """
 
-
-
 import glob
 import os
 
@@ -129,7 +127,11 @@ def run_module():
 
     for filepath in files:
         basename = os.path.basename(filepath)
-        stem = basename[: -len(suffix)] if suffix and basename.endswith(suffix) else basename
+        stem = (
+            basename[: -len(suffix)]
+            if suffix and basename.endswith(suffix)
+            else basename
+        )
 
         if stem in keep:
             result["kept"].append(basename)

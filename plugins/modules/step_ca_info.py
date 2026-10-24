@@ -14,8 +14,6 @@ Result keys are exactly the ones requested via I(gather) — unrequested
 keys are not present in the return value.
 """
 
-
-
 import os
 from urllib.parse import urlparse
 

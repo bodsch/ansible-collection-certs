@@ -20,8 +20,6 @@ variable so the module is fully self-contained and does not depend on the
 per-user default locations mkcert would otherwise pick.
 """
 
-
-
 import os
 import shutil
 from datetime import datetime, timezone

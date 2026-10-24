@@ -1,31 +1,39 @@
 ---
 
 - name: copy certbot-renew.py
+  when:
+    - not ansible_check_mode
   ansible.builtin.copy:
     src: certbot-renew.py
     dest: /bin/certbot-renew.py
     mode: "0750"
 
 - name: create certbot renew.yml
+  when:
+    - not ansible_check_mode
   ansible.builtin.template:
     src: etc/certbot/certbot-renew.yml.j2
     dest: /etc/certbot/renew.yml
     mode: "0640"
 
 - name: create multi domain config files
+  when:
+    - not ansible_check_mode
+    - certbot_tls_certificates | default([]) | count > 0
   bodsch.certs.domain_config_files:
     certificates: "{{ certbot_tls_certificates }}"
     path: /etc/certbot/domains
-  when:
-    - certbot_tls_certificates | default([]) | count > 0
 
 - name: remove old cronjob for certbot renew
+  when:
+    - not ansible_check_mode
   ansible.builtin.file:
     state: absent
     path: /etc/cron.d/certbot
 
 - name: support systemd
   when:
+    - not ansible_check_mode
     - ansible_facts.service_mgr == 'systemd'
   block:
 
@@ -57,6 +65,7 @@
 
 - name: support sysv
   when:
+    - not ansible_check_mode
     - ansible_facts.service_mgr != 'systemd' or
       not certbot_systemd.use_timer
   block:

@@ -24,7 +24,6 @@ helper treats "missing on server" as "equal to default in desired" so
 that wiring through the same dict on a second run produces no PUT.
 """
 
-
 import json
 import os
 

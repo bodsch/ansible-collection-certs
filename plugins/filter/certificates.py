@@ -101,7 +101,9 @@ class FilterModule:
         Returns:
             A flattened list of all domains and (optionally) subdomains.
         """
-        display.vv(f"bodsch.certs::flatten_domain_list(data: {data}, with_subdomains: {with_subdomains})")
+        display.vv(
+            f"bodsch.certs::flatten_domain_list(data: {data}, with_subdomains: {with_subdomains})"
+        )
 
         domains: list[str] = []
 

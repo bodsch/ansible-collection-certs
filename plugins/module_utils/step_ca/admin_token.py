@@ -29,7 +29,6 @@ Implementation notes:
     * The ephemeral private key and cert chain live only in process memory.
 """
 
-
 import base64
 import hashlib
 import json

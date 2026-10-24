@@ -1,11 +1,22 @@
 ---
 
 - name: merge certbot configuration between defaults and custom
+  when:
+    - not ansible_check_mode
   ansible.builtin.set_fact:
     certbot_cron: "{{ certbot_defaults_cron | combine(certbot_cron, recursive=True) }}"
 
+- name: ensure dbus service are running
+  when:
+    - not ansible_check_mode
+  ansible.builtin.service:
+    name: dbus.service
+    state: started
+
+
 - name: remove background cron job
   when:
+    - not ansible_check_mode
     - not certbot_cron.enabled | default('false') | bool
     - certbot_cron.type | default('cron') | string | lower in ["cron", "systemd"]
   block:
@@ -37,6 +48,7 @@
 
 - name: create background cron job
   when:
+    - not ansible_check_mode
     - certbot_cron.enabled | default('false') | bool
     - certbot_cron.type | default('cron') |  string | lower in ["cron", "systemd"]
   block:

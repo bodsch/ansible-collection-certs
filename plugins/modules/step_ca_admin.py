@@ -16,8 +16,6 @@ provisioner endpoints which use protojson and accept enum strings. The
 module exposes a string-based interface and translates internally.
 """
 
-
-
 import os
 from urllib.parse import urlparse
 

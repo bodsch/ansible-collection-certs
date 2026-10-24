@@ -1,6 +1,8 @@
 ---
 
 - name: detect if certbot installed
+  when:
+    - not ansible_check_mode
   ansible.builtin.stat:
     path: /usr/bin/certbot
     get_checksum: false
@@ -8,40 +10,46 @@
   register: certbot_binary_file
 
 - name: define certbot_installed if certbot installed
-  ansible.builtin.set_fact:
-    certbot_installed: "{{ certbot_binary_file.stat.exists }}"
   when:
+    - not ansible_check_mode
     - certbot_binary_file is defined
     - certbot_binary_file.stat is defined
+  ansible.builtin.set_fact:
+    certbot_installed: "{{ certbot_binary_file.stat.exists }}"
 
 - name: create policy-rc.d
+  when:
+    - not ansible_check_mode
+    - not certbot_installed
+    - ansible_facts.os_family | lower != 'archlinux'
   ansible.builtin.copy:
     dest: /usr/sbin/policy-rc.d
     content: |
       #!/bin/sh
       exit 101
     mode: "0755"
-  when:
-    - not certbot_installed
-    - ansible_facts.os_family | lower != 'archlinux'
 
 - name: install requirements
+  when:
+    - not ansible_check_mode
+    - certbot_requirements | default([]) | count > 0
   ansible.builtin.package:
     name: "{{ certbot_requirements }}"
     state: present
-  when:
-    - certbot_requirements | default([]) | count > 0
 
 - name: install certbot
+  when:
+    - not ansible_check_mode
   ansible.builtin.package:
     name: certbot
     state: present
 
 - name: remove policy-rc.d
+  when:
+    - not ansible_check_mode
+    - ansible_facts.os_family | lower != 'archlinux'
   ansible.builtin.file:
     path: /usr/sbin/policy-rc.d
     state: absent
-  when:
-    - ansible_facts.os_family | lower != 'archlinux'
 
 ...

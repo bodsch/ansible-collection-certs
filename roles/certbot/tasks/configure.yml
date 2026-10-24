@@ -1,12 +1,16 @@
 ---
 
 - name: create /etc/certbot directory
+  when:
+    - not ansible_check_mode
   ansible.builtin.file:
     state: directory
     path: /etc/certbot
     mode: "0750"
 
 - name: create /etc/certbot/domains directory
+  when:
+    - not ansible_check_mode
   ansible.builtin.file:
     state: directory
     path: /etc/certbot/domains
@@ -37,6 +41,8 @@
 #     - certbot/certbot/ssl-dhparams.pem
 
 - name: create well-known directory
+  when:
+    - not ansible_check_mode
   ansible.builtin.file:
     state: directory
     path: "{{ certbot_config.well_known_directory }}"
@@ -45,6 +51,8 @@
     mode: "0777"
 
 - name: fix rights for well-known directory
+  when:
+    - not ansible_check_mode
   ansible.builtin.file:
     state: directory
     path: "{{ certbot_config.www_directory }}"
@@ -55,6 +63,8 @@
 # -----------------------------------------------------------------------------
 
 - name: ensure that domain certificates are present
+  when:
+    - not ansible_check_mode
   bodsch.certs.domain_certs:
     path: "{{ certbot_config.conf_directory }}/live"
     file: fullchain.pem
@@ -62,20 +72,30 @@
   register: domain_certificates_exists
 
 - name: define missing domains
+  when:
+    - not ansible_check_mode
   ansible.builtin.set_fact:
     certbot_missing_domains: "{{ domain_certificates_exists.certificate_miss }}"
 
 - name: missing certificates
+  when:
+    - not ansible_check_mode
   ansible.builtin.debug:
     msg: "{{ certbot_missing_domains }}"
 
 - name: IMPORTANT NOTE
+  when:
+    - not ansible_check_mode
   ansible.builtin.debug:
     msg: |
       The following task can have a long runtime.
       It depends on the response time of the web service or whether the DNS configuration is correct.
 
 - name: create a new certificate with certbot
+  when:
+    - not ansible_check_mode
+    - certbot_tls_certificates is defined
+    - certbot_tls_certificates | count > 0
   bodsch.certs.certbot:
     state: certonly
     webroot_path: "{{ certbot_config.www_directory }}"
@@ -88,15 +108,13 @@
     auto_expand: "{{ certbot_auto_expand | default(true) | bool }}"
     arguments: "{{ certbot_staging_args | default([]) }}"
   register: create_certificates
-  when:
-    - certbot_tls_certificates is defined
-    - certbot_tls_certificates | count > 0
   ignore_errors: true
 
 - name: show errors at new certificates
+  when:
+    - not ansible_check_mode
+    - create_certificates.errors | default('0') | int > 0
   ansible.builtin.debug:
     msg: "{{ create_certificates }}"
-  when:
-    create_certificates.errors | default('0') | int > 0
 
 ...

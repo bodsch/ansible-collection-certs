@@ -14,8 +14,6 @@ detection become trivial), and reports all problems at once instead
 of failing on the first.
 """
 
-
-
 import re
 
 _DOMAIN_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$")
@@ -45,16 +43,12 @@ def _check_install(install, prefix, errors):
     for required in ("cert", "key"):
         value = install.get(required)
         if not _is_string(value):
-            errors.append(
-                f"{prefix}.install: missing or non-string '{required}'"
-            )
+            errors.append(f"{prefix}.install: missing or non-string '{required}'")
 
     for optional_str in ("ca", "owner", "group"):
         value = install.get(optional_str)
         if value is not None and not _is_string(value):
-            errors.append(
-                f"{prefix}.install: '{optional_str}' must be a string if set"
-            )
+            errors.append(f"{prefix}.install: '{optional_str}' must be a string if set")
 
     for mode_key in ("cert_mode", "key_mode", "ca_mode"):
         value = install.get(mode_key)
@@ -83,7 +77,9 @@ def validate_certificates(certificates, known_issuers=None):
     if certificates is None:
         return errors
     if not isinstance(certificates, list):
-        return [f"lego_tls_certificates must be a list, got {type(certificates).__name__}"]
+        return [
+            f"lego_tls_certificates must be a list, got {type(certificates).__name__}"
+        ]
 
     known_issuer_names = {
         i.get("name") for i in (known_issuers or []) if isinstance(i, dict)
@@ -131,7 +127,7 @@ def validate_certificates(certificates, known_issuers=None):
         elif isinstance(subdomains, list):
             for s_idx, sub in enumerate(subdomains):
                 if sub is None:
-                    continue                              # tolerate null entries
+                    continue  # tolerate null entries
                 if not _is_string(sub):
                     errors.append(
                         f"{prefix}.subdomains[{s_idx}]: must be a string, got "

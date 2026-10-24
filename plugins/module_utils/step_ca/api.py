@@ -29,8 +29,6 @@ calling modules don't have to know about them:
   the same client instance.
 """
 
-
-
 from urllib.parse import urljoin
 
 from ansible_collections.bodsch.certs.plugins.module_utils.step_ca.admin_token import (

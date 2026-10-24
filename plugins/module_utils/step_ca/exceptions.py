@@ -24,8 +24,6 @@ The hierarchy is intentionally shallow:
 """
 
 
-
-
 class StepCAError(Exception):
     """
     Base class for all step-ca module utility errors.
