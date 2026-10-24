@@ -83,9 +83,9 @@
     domains: "{{ certbot_tls_certificates }}"
     certbot_base_directory: "{{ certbot_config.conf_directory }}"
     email: "{{ certbot_config.email }}"
-    test_cert: "{{ certbot_test_cert | default('true') }}"
-    dry_run: "{{ certbot_dry_run | default('true') }}"
-    auto_expand: "{{ certbot_auto_expand | default('true') }}"
+    test_cert: "{{ certbot_test_cert | default(true) | bool }}"
+    dry_run: "{{ certbot_dry_run | default(true) | bool }}"
+    auto_expand: "{{ certbot_auto_expand | default(true) | bool }}"
     arguments: "{{ certbot_staging_args | default([]) }}"
   register: create_certificates
   when:

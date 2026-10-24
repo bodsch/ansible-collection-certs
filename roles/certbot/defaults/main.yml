@@ -16,6 +16,10 @@ certbot_tls_certificates: []
 #      - www.foo-foo.bar
 #      - assets.foo-foo.bar
 
+certbot_dns_resolver: []
+#  - 9.9.9.9
+#  - 141.1.1.1
+
 certbot_notification:
   enabled: false
   smtp:

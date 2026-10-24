@@ -13,6 +13,13 @@ certbot:
   email: {{ certbot_config.email }}
   expire_days_limit: {{ certbot_config.expire_days_limit | default('20') }}
 
+{% if certbot_dns_resolver | default([]) | count > 0 %}
+dns_resolver:
+  {% for resolver in certbot_dns_resolver %}
+    - {{ resolver }}
+  {% endfor %}
+{% endif %}
+
 {% if certbot_notification is defined and
       certbot_notification.enabled | default('false') | bool %}
 notification:

@@ -13,7 +13,7 @@
     mode: "0640"
 
 - name: create multi domain config files
-  domain_config_files:
+  bodsch.certs.domain_config_files:
     certificates: "{{ certbot_tls_certificates }}"
     path: /etc/certbot/domains
   when:

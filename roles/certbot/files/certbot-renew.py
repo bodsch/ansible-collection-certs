@@ -614,6 +614,8 @@ class RenewCertificates:
         self.config_expire_days_limit = 20
         self.config_rsa_key_size = 4096
 
+        self.dns_resolver = ["1.1.1.1"]
+
         self.notification_enabled = False
         self.notification_smtp_host = None
         self.notification_sender = None
@@ -637,6 +639,10 @@ class RenewCertificates:
             )
             self.config_rsa_key_size = data.get("certbot", {}).get("rsa_key_size", 4096)
             self.config_email = data.get("certbot", {}).get("email", "pki@test.com")
+
+            dns_resolver = data.get("dns_resolver", [])
+            if len(dns_resolver) > 0:
+                self.dns_resolver = dns_resolver
 
             notification = data.get("notification", {})
 
@@ -766,10 +772,15 @@ class RenewCertificates:
         logging.debug(f"_renew_certificate({domain})")
 
         _domain_list = self.read_domains_from_config(domain)
+
+        logging.debug(f"  - domains: {_domain_list}")
+
+        if len(_domain_list) == 0:
+            logging.error("No domains have been defined for renewal!")
+            return False
+
         _domains = "--domain "
         _domains += " --domain ".join(_domain_list)
-
-        logging.debug(_domain_list)
 
         opts = self.__define_certbot_opts(domain=domain, expand=self.expand)
 
@@ -883,13 +894,14 @@ class RenewCertificates:
             _domain = []
 
             for x in domain_list:
-                dns_result = _resolver.dns_lookup(x)
+                dns_result = _resolver.dns_lookup(dns_name=x, dns_resolvers=self.dns_resolver)
 
                 logging.debug(f"  - {dns_result}")
 
                 if not dns_result.get("error"):
                     _domain.append(x)
                 else:
+                    logging.error(f"No DNS record was found; the domain {x} will be removed.")
                     reject_domains.append(x)
 
             domain_list = _domain
@@ -1099,16 +1111,17 @@ class RenewCertificates:
 
     def _diff_domains(self, domain):
         """ """
-        # logging.debug(f"::_diff_domains({domain})")
+        logging.debug(f"::_diff_domains({domain})")
 
         data = None
         _cert = []
-        # logging.debug(self.current_certificates)
-        # logging.debug(self.config_domains)
+
+        logging.debug(f" - current certificates   : {self.current_certificates}")
+        logging.debug(f" - configured certificates: {self.config_domains}")
 
         config_path = os.path.join(self.config_base_path, f"{domain}.yml")
 
-        logging.debug(f"  config file: {config_path}")
+        logging.debug(f"   config file: {config_path}")
 
         if os.path.exists(config_path):
             with open(config_path, "r") as stream:
@@ -1122,7 +1135,7 @@ class RenewCertificates:
         _domains = data.get("domains", [])
         _domains = sorted(_domains)
 
-        # logging.debug(f"  domains: {_domains}")
+        logging.debug(f"   configured domains from file: {_domains}")
 
         if self.current_certificates:
             domain_avail = self.current_certificates.get(domain, None)

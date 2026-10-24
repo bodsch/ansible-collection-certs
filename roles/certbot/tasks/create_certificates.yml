@@ -2,7 +2,7 @@
 
 - name: define full domain list
   ansible.builtin.set_fact:
-    certbot_full_domain_list: "{{ certbot_tls_certificates | domain_list(item) | join(' --domain ') }}"
+    certbot_full_domain_list: "{{ certbot_tls_certificates | bodsch.certs.domain_list(item) | join(' --domain ') }}"
 
 - name: create certificate with certbot certonly
   ansible.builtin.shell: |

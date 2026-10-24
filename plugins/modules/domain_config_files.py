@@ -198,7 +198,7 @@ class DomainConfigs:
             self.module, result_state
         )
 
-        result = dict(changed=_changed, failed=failed, state=result_state)
+        result = dict(changed=_changed, failed=_failed, state=result_state)
 
         shutil.rmtree(self.tmp_directory)
 

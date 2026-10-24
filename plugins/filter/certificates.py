@@ -36,7 +36,7 @@ class FilterModule:
         Returns:
             A list of domains where the certificate file does not exist.
         """
-        # display.v(f" data: ({type(data)}) {data}")
+        display.vv(f"bodsch.certs::certificates(data: {data})")
 
         if not data or "results" not in data:
             display.v("No valid data provided to 'certificates'.")
@@ -71,6 +71,8 @@ class FilterModule:
         Returns:
             A sorted list of unique domains and subdomains.
         """
+        display.vv(f"bodsch.certs::domain_list(data: {data}, domain: {domain})")
+
         domain_list: list[str] = []
 
         for entry in data:
@@ -99,6 +101,8 @@ class FilterModule:
         Returns:
             A flattened list of all domains and (optionally) subdomains.
         """
+        display.vv(f"bodsch.certs::flatten_domain_list(data: {data}, with_subdomains: {with_subdomains})")
+
         domains: list[str] = []
 
         for entry in data:
