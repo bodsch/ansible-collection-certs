@@ -1,0 +1,37 @@
+#jinja2: trim_blocks: True, lstrip_blocks: True
+---
+# {{ ansible_managed }}
+
+{% set values = domain | bodsch.core.remove_empty_values %}
+{% set _domain = {"domain": values.domain} %}
+{% if values.subdomains is defined and values.subdomains | bodsch.certs.as_list | count > 0 %}
+  {% set _ = _domain.update({"subdomains": values.subdomains | bodsch.certs.as_list}) %}
+{% endif %}
+{% for key in ["issuer", "key_type"] %}
+  {% if values[key] is defined and values[key] | string | length > 0 %}
+    {% set _ = _domain.update({key: values[key]}) %}
+  {% endif %}
+{% endfor %}
+{% if values.challenge is defined and values.challenge | count > 0 %}
+  {% set _ = _domain.update({"challenge": values.challenge}) %}
+{% endif %}
+{% if values.install is defined and values.install | count > 0 %}
+  {% set _install = {} %}
+  {% for key in ["cert", "fullchain", "leaf", "key", "ca", "combined", "owner", "group"] %}
+    {% if values.install[key] is defined and values.install[key] | string | length > 0 %}
+      {% set _ = _install.update({key: values.install[key]}) %}
+    {% endif %}
+  {% endfor %}
+  {% set _ = _install.update({
+    "cert_mode": values.install.cert_mode | default("0644") | string,
+    "key_mode": values.install.key_mode | default("0640") | string,
+    "ca_mode": values.install.ca_mode | default("0644") | string,
+  }) %}
+  {% set _ = _domain.update({"install": _install}) %}
+{% endif %}
+{% for key in ["pre_hook", "post_hook", "cleanup_hook", "restarts"] %}
+  {% if values[key] is defined and values[key] | bodsch.certs.as_list | count > 0 %}
+    {% set _ = _domain.update({key: values[key] | bodsch.certs.as_list}) %}
+  {% endif %}
+{% endfor %}
+{{ _domain | to_nice_yaml(indent=2, sort_keys=False) }}

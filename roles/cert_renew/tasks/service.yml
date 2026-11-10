@@ -1,0 +1,66 @@
+---
+
+- name: systemd timer
+  when:
+    - ansible_facts.service_mgr | lower == "systemd"
+    - cert_renew_timer.type | default('systemd') == "systemd"
+  block:
+    - name: create systemd units for lego-renew
+      ansible.builtin.template:
+        src: "etc/init/systemd/lego-renew.{{ item }}.j2"
+        dest: "/etc/systemd/system/lego-renew.{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - service
+        - timer
+      notify:
+        - daemon-reload
+        - restart lego-renew.timer
+
+    - name: flush handlers
+      ansible.builtin.meta: flush_handlers
+
+    - name: "{{ 'enable' if cert_renew_timer.enabled | bool else 'disable' }} lego-renew.timer"
+      when:
+        - not running_in_check_mode
+      ansible.builtin.service:
+        name: lego-renew.timer
+        enabled: "{{ cert_renew_timer.enabled | bool }}"
+        state: "{{ cert_renew_timer.state }}"
+
+    - name: remove cron job for lego-renew
+      ansible.builtin.cron:
+        name: lego renew
+        cron_file: lego-renew
+        user: root
+        state: absent
+
+- name: cron job
+  when:
+    - ansible_facts.service_mgr | lower != "systemd" or
+      cert_renew_timer.type | default('systemd') == "cron"
+  block:
+    - name: disable lego-renew.timer
+      when:
+        - ansible_facts.service_mgr | lower == "systemd"
+        - not running_in_check_mode
+      ansible.builtin.service:
+        name: lego-renew.timer
+        enabled: false
+        state: stopped
+      failed_when: false
+
+    - name: "{{ 'create' if cert_renew_timer.enabled | bool else 'remove' }} cron job for lego-renew"
+      ansible.builtin.cron:
+        name: lego renew
+        cron_file: lego-renew
+        user: root
+        minute: "{{ cert_renew_timer.cron.minute | default('58') }}"
+        hour: "{{ cert_renew_timer.cron.hour | default('2') }}"
+        weekday: "{{ cert_renew_timer.cron.weekday | default('*') }}"
+        job: "{{ cert_renew_script }} --silent"
+        state: "{{ 'present' if cert_renew_timer.state == 'started' | bool else 'absent' }}"
+      failed_when: false
+...

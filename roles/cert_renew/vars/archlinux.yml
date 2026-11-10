@@ -1,0 +1,8 @@
+---
+
+cert_renew_dependencies:
+  - python-yaml
+  - python-cryptography
+  - python-dnspython
+
+...

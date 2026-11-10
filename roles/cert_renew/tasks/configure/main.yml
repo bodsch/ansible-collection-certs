@@ -1,0 +1,55 @@
+---
+
+- name: merge renew configuration between defaults and custom
+  ansible.builtin.set_fact:
+    cert_renew_checks: "{{ cert_renew_defaults_checks | combine(cert_renew_checks | default({}), recursive=True) }}"
+    cert_renew_notification: "{{ cert_renew_defaults_notification | combine(cert_renew_notification | default({}), recursive=True) }}"
+    cert_renew_timer: "{{ cert_renew_defaults_timer | combine(cert_renew_timer | default({}), recursive=True) }}"
+
+- name: create directory tree
+  bodsch.core.directories:
+    owner: "{{ cert_renew_system_user.owner }}"
+    group: "{{ cert_renew_system_user.group }}"
+    mode: "0750"
+    paths:
+      - path: "{{ cert_renew_config_dir }}"
+      - path: "{{ cert_renew_issuers_dir }}"
+      - path: "{{ cert_renew_domains_dir }}"
+      - path: "{{ cert_renew_state_dir }}"
+
+- name: validate renew configuration
+  ansible.builtin.assert:
+    that:
+      - cert_renew_checks.on_unreachable in ["drop", "fail", "ignore"]
+      - cert_renew_timer.type in ["systemd", "cron"]
+      - cert_renew_key_type in ["rsa2048", "rsa3072", "rsa4096", "rsa8192", "ec256", "ec384"]
+      - cert_renew_default_issuer | default('') | string | length == 0 or
+        cert_renew_default_issuer in (cert_renew_issuers | map(attribute='name') | list)
+      - not cert_renew_notification.enabled | bool or
+        (cert_renew_notification.sender | default('') | string | length > 0 and
+         cert_renew_notification.recipient | default('') | length > 0 and
+         cert_renew_notification.smtp.server_name | default('') | string | length > 0)
+    fail_msg: >-
+      invalid cert_renew_* configuration (on_unreachable, timer type, key type,
+      default issuer or incomplete notification settings)
+    quiet: true
+
+- name: create renew configuration file
+  ansible.builtin.template:
+    src: etc/lego/renew.yml.j2
+    dest: "{{ cert_renew_config_dir }}/renew.yml"
+    owner: root
+    group: "{{ cert_renew_system_user.group }}"
+    mode: "0640"
+
+- name: configure issuers
+  ansible.builtin.include_tasks: issuers.yml
+  when:
+    - cert_renew_issuers | default([]) | count > 0
+
+- name: configure domains
+  ansible.builtin.include_tasks: domains.yml
+  when:
+    - cert_renew_certificates | default([]) | count > 0
+
+...

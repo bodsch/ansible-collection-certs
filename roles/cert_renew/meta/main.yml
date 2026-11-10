@@ -1,0 +1,28 @@
+---
+
+galaxy_info:
+  role_name: cert_renew
+
+  author: Bodo Schulz
+  description: issue and renew multiple ACME certificates via lego (http-01 / dns-01)
+
+  license: "Apache"
+  min_ansible_version: "2.10"
+
+  platforms:
+    - name: ArchLinux
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+
+  galaxy_tags:
+    - certificate
+    - acme
+    - letsencrypt
+    - lego
+    - tls
+
+dependencies: []
+
+...
