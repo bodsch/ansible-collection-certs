@@ -114,10 +114,10 @@
         - name: flush handlers
           ansible.builtin.meta: flush_handlers
 
-        - name: ensure cert-manager.service enabled
-          ansible.builtin.service:
-            name: cert-manager.service
-            enabled: "{{ cert_manager_timer.enabled | default(false) | bool }}"
+        # - name: ensure cert-manager.service enabled
+        #   ansible.builtin.service:
+        #     name: cert-manager.service
+        #     enabled: "{{ cert_manager_timer.enabled | default(false) | bool }}"
 
         - name: enable cert-manager background timer
           ansible.builtin.service:
