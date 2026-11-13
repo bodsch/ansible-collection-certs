@@ -29,28 +29,20 @@
       ansible.builtin.package:
         update_cache: true
 
-    - name: make sure iproute2 is installed
+    - name: make sure dbus is installed
+      when:
+        - ansible_facts.os_family | lower == 'debian'
+      ansible.builtin.package:
+        name:
+          - dbus
+        state: present
+
+    - name: make sure iproute2 and python3-dbus are installed
       ansible.builtin.package:
         name:
           - iproute2
+          - python3-dbus
         state: present
-
-    # - name: make sure bind-utils is installed
-    #   when:
-    #     - ansible_facts.distribution | lower == 'archlinux' or
-    #       ansible_facts.os_family | lower == 'artix linux'
-    #   ansible.builtin.package:
-    #     name:
-    #       - bind-utils
-    #     state: present
-    #
-    # - name: make sure bind9-utils is installed
-    #   when:
-    #     - ansible_facts.os_family | lower == 'debian'
-    #   ansible.builtin.package:
-    #     name:
-    #       - bind9-utils
-    #     state: present
 
     - name: environment
       ansible.builtin.debug:

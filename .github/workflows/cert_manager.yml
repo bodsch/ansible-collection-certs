@@ -58,7 +58,7 @@ jobs:
         python_version:
           - '3.13'
         scenario:
-          - default
+          - configured
         collection_role:
           - cert_manager
 
@@ -118,7 +118,7 @@ jobs:
         python_version:
           - '3.13'
         scenario:
-          - default
+          - configured
         collection_role:
           - cert_manager
 
@@ -177,7 +177,6 @@ jobs:
         python_version:
           - '3.13'
         scenario:
-          - configured
           - full-configured
         collection_role:
           - cert_manager

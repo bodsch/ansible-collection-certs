@@ -29,19 +29,19 @@
       ansible.builtin.package:
         update_cache: true
 
-    - name: make sure iproute2 is installed
-      ansible.builtin.package:
-        name:
-          - iproute2
-        state: present
-
     - name: make sure dbus is installed
       when:
         - ansible_facts.os_family | lower == 'debian'
       ansible.builtin.package:
         name:
-          - python3-dbus
           - dbus
+        state: present
+
+    - name: make sure iproute2 and python3-dbus are installed
+      ansible.builtin.package:
+        name:
+          - iproute2
+          - python3-dbus
         state: present
 
     - name: environment
