@@ -1,0 +1,44 @@
+#jinja2: trim_blocks: True, lstrip_blocks: True
+---
+# {{ ansible_managed }}
+#
+# Configuration for {{ cert_manager_script }}
+# (see the docstring of the script for all keys).
+#
+# Order (later wins): script defaults < this file < command-line flags.
+
+{% set _config = {
+  "lego_binary": cert_manager_lego_binary,
+  "state_dir": cert_manager_state_dir,
+  "issuers_dir": cert_manager_issuers_dir,
+  "domains_dir": cert_manager_domains_dir,
+  "renewal_days": cert_manager_days | int,
+  "key_type": cert_manager_key_type,
+  "lock_file": cert_manager_lock_file,
+  "lego_timeout": cert_manager_lego_timeout | int,
+  "checks": {
+    "dns": cert_manager_checks.dns | bool,
+    "well_known": cert_manager_checks.well_known | bool,
+    "on_unreachable": cert_manager_checks.on_unreachable,
+    "timeout": cert_manager_checks.timeout | int,
+  },
+} %}
+{% if cert_manager_default_issuer | default('') | string | length > 0 %}
+  {% set _ = _config.update({"default_issuer": cert_manager_default_issuer}) %}
+{% endif %}
+{% if cert_manager_log_file | default('') | string | length > 0 %}
+  {% set _ = _config.update({"log_file": cert_manager_log_file}) %}
+{% endif %}
+{% if cert_manager_live_dir | default('') | string | length > 0 %}
+  {% set _ = _config.update({"live_dir": cert_manager_live_dir}) %}
+{% endif %}
+{% if cert_manager_dns_resolver | default([]) | count > 0 %}
+  {% set _ = _config.update({"dns_resolver": cert_manager_dns_resolver | bodsch.certs.as_list}) %}
+{% endif %}
+{% if cert_manager_restarts | default([]) | count > 0 %}
+  {% set _ = _config.update({"restarts": cert_manager_restarts}) %}
+{% endif %}
+{% if cert_manager_notification.enabled | bool %}
+  {% set _ = _config.update({"notification": cert_manager_notification}) %}
+{% endif %}
+{{ _config | to_nice_yaml(indent=2, sort_keys=False) }}

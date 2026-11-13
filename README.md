@@ -34,13 +34,19 @@ pacman -S python-dateutil
 
 | Role                                                                       | Build State | Description |
 |:---------------------------------------------------------------------------| :---------: | :----       |
-| [bodsch.certs.snakeoil](./roles/snakeoil/README.md)                        | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/snakeoil.yml?branch=main)][snakeoil] | build a simple snakeoil certificate for a test environment. |
-| [bodsch.certs.step_ca](./roles/step_ca/README.md)                          | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/step_ca.yml?branch=main)][step_ca]   | install and configure `step_ca`. |
-| [bodsch.certs.certbot](./roles/certbot/README.md)                          | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/certbot.yml?branch=main)][certbot]   | certbot role for multiple ACME certificates. |
+| [bodsch.certs.snakeoil](./roles/snakeoil/README.md)                        | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/snakeoil.yml?branch=main)][snakeoil]         | build a simple snakeoil certificate for a test environment. |
+| [bodsch.certs.step_ca](./roles/step_ca/README.md)                          | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/step_ca.yml?branch=main)][step_ca]           | install and configure `step_ca`. |
+| [bodsch.certs.certbot](./roles/certbot/README.md)                          | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/certbot.yml?branch=main)][certbot]           | install certbot. |
+| [bodsch.certs.lego](./roles/lego/README.md)                                | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/lego.yml?branch=main)][lego]                 | install lego. |
+| [bodsch.certs.mkcert](./roles/mkcert/README.md)                            | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/mkcert.yml?branch=main)][lego]               | install mkcert. |
+| [bodsch.certs.cert_manager](./roles/cert_manager/README.md)                | [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/bodsch/ansible-collection-certs/cert_manager.yml?branch=main)][cert_manager] | management role for multiple ACME certificates. |
 
 [snakeoil]: https://github.com/bodsch/ansible-collection-certs/actions/workflows/snakeoil.yml
 [step_ca]: https://github.com/bodsch/ansible-collection-certs/actions/workflows/step_ca.yml
 [certbot]: https://github.com/bodsch/ansible-collection-certs/actions/workflows/certbot.yml
+[lego]: https://github.com/bodsch/ansible-collection-certs/actions/workflows/lego.yml
+[mkcert]: https://github.com/bodsch/ansible-collection-certs/actions/workflows/mkcert.yml
+[cert_manager]: https://github.com/bodsch/ansible-collection-certs/actions/workflows/cert_manager.yml
 
 ### Modules
 

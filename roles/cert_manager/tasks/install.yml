@@ -1,0 +1,24 @@
+---
+
+- name: install dependencies for the renewal script
+  when:
+    - cert_manager_dependencies | default([]) | count > 0
+  ansible.builtin.package:
+    name: "{{ cert_manager_dependencies }}"
+    state: present
+
+- name: copy cert-manager.py
+  ansible.builtin.copy:
+    src: cert-manager.py
+    dest: "{{ cert_manager_script }}"
+    owner: root
+    group: root
+    mode: "0750"
+  no_log: true
+
+- name: remove superseded lego-renew.py
+  ansible.builtin.file:
+    path: /bin/lego-renew.py
+    state: absent
+
+...
