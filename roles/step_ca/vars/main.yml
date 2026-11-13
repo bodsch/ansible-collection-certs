@@ -23,4 +23,8 @@ _step_ca_trust_store_platform:
     update_command: update-ca-trust
     package: ca-certificates
 
+step_ca_defaults_trust_store:
+  enabled: false
+  filename: "step-ca-root.crt"   # must end in .crt for update-ca-certificates
+
 ...

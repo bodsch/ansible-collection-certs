@@ -1,0 +1,79 @@
+---
+
+# cert_manager_state: installed
+
+cert_manager_system_user:
+  owner: root
+  group: root
+
+cert_manager_system_service:
+  state: started
+  enabled: true
+
+# renewal script (needs the lego binary, e.g. from the bodsch.certs.lego role)
+cert_manager_script: /usr/bin/cert-manager.py
+cert_manager_lego_binary: /usr/bin/lego
+
+# ownership of the configuration and state directories
+# (the script itself runs as root)
+# cert_manager_owner: root
+# cert_manager_group: root
+
+cert_manager_config_dir: /etc/cert-manager
+cert_manager_issuers_dir: /etc/cert-manager/issuers.d
+cert_manager_domains_dir: /etc/cert-manager/domains.d
+cert_manager_state_dir: /var/lib/lego
+
+cert_manager_days: 30
+cert_manager_key_type: ec256            # rsa2048|rsa3072|rsa4096|rsa8192|ec256|ec384
+cert_manager_lock_file: /run/cert-manager-renew.lock
+cert_manager_default_issuer: ""         # issuer for certificates without 'issuer'
+cert_manager_log_file: /var/log/cert-manager.log
+cert_manager_live_dir: ""               # e.g. /etc/letsencrypt/live (certbot layout)
+cert_manager_lego_timeout: 600
+
+# http-01 pre-checks (DNS + .well-known reachability)
+cert_manager_checks: {}
+#  dns: true
+#  well_known: true
+#  on_unreachable: drop               # drop | fail | ignore
+#  timeout: 5
+
+cert_manager_dns_resolver: []
+#  - 9.9.9.9
+
+# services to reload/restart after any changed certificate
+cert_manager_restarts: []
+#  - service: nginx
+#    action: reload                   # reload | restart
+
+cert_manager_notification: {}
+#  enabled: true
+#  events: [changed, failed]          # or [always]
+#  sender: lego@example.com
+#  recipient: admin@example.com
+#  smtp:
+#    server_name: smtp.example.com
+#    port: 587
+#    tls: starttls                    # starttls | ssl | none
+#    auth:
+#      username: ""
+#      password: ""
+
+# periodic run: systemd timer (systemd hosts) or cron
+cert_manager_timer:
+  state: stopped
+  enabled: false
+  type: systemd                      # systemd | cron
+  on_calendar: "*-*-* 02:58:00"
+  randomized_delay: 1h
+  cron:
+    minute: "58"
+    hour: "2"
+    weekday: "*"
+
+cert_manager_issuers: []
+
+cert_manager_certificates: []
+
+...

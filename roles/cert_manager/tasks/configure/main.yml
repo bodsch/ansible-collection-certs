@@ -1,0 +1,56 @@
+---
+
+- name: merge renew configuration between defaults and custom
+  ansible.builtin.set_fact:
+    cert_manager_checks: "{{ cert_manager_defaults_checks | combine(cert_manager_checks | default({}), recursive=True) }}"
+    cert_manager_notification: "{{ cert_manager_defaults_notification | combine(cert_manager_notification | default({}), recursive=True) }}"
+    cert_manager_timer: "{{ cert_manager_defaults_timer | combine(cert_manager_timer | default({}), recursive=True) }}"
+  no_log: true
+
+- name: create directory tree
+  bodsch.core.directories:
+    owner: "{{ cert_manager_system_user.owner }}"
+    group: "{{ cert_manager_system_user.group }}"
+    mode: "0750"
+    paths:
+      - path: "{{ cert_manager_config_dir }}"
+      - path: "{{ cert_manager_issuers_dir }}"
+      - path: "{{ cert_manager_domains_dir }}"
+      - path: "{{ cert_manager_state_dir }}"
+
+- name: validate renew configuration
+  ansible.builtin.assert:
+    that:
+      - cert_manager_checks.on_unreachable in ["drop", "fail", "ignore"]
+      - cert_manager_timer.type in ["systemd", "cron"]
+      - cert_manager_key_type in ["rsa2048", "rsa3072", "rsa4096", "rsa8192", "ec256", "ec384"]
+      - cert_manager_default_issuer | default('') | string | length == 0 or
+        cert_manager_default_issuer in (cert_manager_issuers | map(attribute='name') | list)
+      - not cert_manager_notification.enabled | bool or
+        (cert_manager_notification.sender | default('') | string | length > 0 and
+         cert_manager_notification.recipient | default('') | length > 0 and
+         cert_manager_notification.smtp.server_name | default('') | string | length > 0)
+    fail_msg: >-
+      invalid cert_manager_* configuration (on_unreachable, timer type, key type,
+      default issuer or incomplete notification settings)
+    quiet: true
+
+- name: create renew configuration file
+  ansible.builtin.template:
+    src: etc/cert-manager/renew.yml.j2
+    dest: "{{ cert_manager_config_dir }}/renew.yml"
+    owner: root
+    group: "{{ cert_manager_system_user.group }}"
+    mode: "0640"
+
+- name: configure issuers
+  ansible.builtin.include_tasks: issuers.yml
+  when:
+    - cert_manager_issuers | default([]) | count > 0
+
+- name: configure domains
+  ansible.builtin.include_tasks: domains.yml
+  when:
+    - cert_manager_certificates | default([]) | count > 0
+
+...

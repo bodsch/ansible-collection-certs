@@ -27,7 +27,7 @@
 
 - name: set facts
   ansible.builtin.set_fact:
-    # snakeoil_certificate_archive_checksum_local: "{{ _certificate_archive_checksum_local.stat.checksum | default('+') }}"
+    snakeoil_certificate_archive_checksum_local: "{{ _certificate_archive_checksum_local.stat.checksum | default('+') }}"
     snakeoil_certificate_archive_checksum_remote: "{{ _certificate_archive_checksum_remote.stat.checksum | default('-') }}"
 
 - name: transfer certificate to destination instance

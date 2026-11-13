@@ -49,10 +49,22 @@ def _check_challenge(challenge, prefix, errors):
         _check_propagation(challenge.get("propagation"), prefix, errors)
 
     if c_type == "http":
-        if not _is_string(challenge.get("webroot")):
+        # webroot mode (``webroot``) or standalone mode (``port``, default ':80')
+        webroot = challenge.get("webroot")
+        if webroot is not None and not _is_string(webroot):
+            errors.append(f"{prefix}.challenge: 'webroot' must be a string if set")
+        port = challenge.get("port")
+        if port is not None and not (
+            (isinstance(port, int) and not isinstance(port, bool)) or _is_string(port)
+        ):
             errors.append(
-                f"{prefix}.challenge: 'webroot' is required when type is 'http'"
+                f"{prefix}.challenge: 'port' must be a port number or a "
+                f"string like ':80' if set"
             )
+
+    env_file = challenge.get("env_file")
+    if env_file is not None and not _is_string(env_file):
+        errors.append(f"{prefix}.challenge: 'env_file' must be a string if set")
 
 
 def _check_propagation(propagation, prefix, errors):
@@ -86,11 +98,12 @@ def _check_eab(eab, prefix, errors):
             errors.append(f"{prefix}.eab: missing or non-string '{required}'")
 
 
-def validate_issuers(issuers):
+def validate_issuers(issuers, var_name="lego_issuers"):
     """
     Return a list of validation errors for the given issuer list.
 
-    :param issuers: The user-supplied ``lego_issuers`` list.
+    :param issuers: The user-supplied issuer list.
+    :param var_name: Variable name used as prefix in the error messages.
     :returns: List of human-readable error strings. Empty if valid.
     """
     errors = []
@@ -98,12 +111,12 @@ def validate_issuers(issuers):
     if issuers is None:
         return errors
     if not isinstance(issuers, list):
-        return [f"lego_issuers must be a list, got {type(issuers).__name__}"]
+        return [f"{var_name} must be a list, got {type(issuers).__name__}"]
 
     seen_names = set()
 
     for idx, issuer in enumerate(issuers):
-        prefix = f"lego_issuers[{idx}]"
+        prefix = f"{var_name}[{idx}]"
 
         if not isinstance(issuer, dict):
             errors.append(f"{prefix}: must be a mapping, got {type(issuer).__name__}")
@@ -131,6 +144,10 @@ def validate_issuers(issuers):
         ca_cert = issuer.get("ca_certificate")
         if ca_cert is not None and not _is_string(ca_cert):
             errors.append(f"{prefix}: 'ca_certificate' must be a string if set")
+
+        preferred_chain = issuer.get("preferred_chain")
+        if preferred_chain is not None and not _is_string(preferred_chain):
+            errors.append(f"{prefix}: 'preferred_chain' must be a string if set")
 
         _check_challenge(issuer.get("challenge"), prefix, errors)
         _check_eab(issuer.get("eab"), prefix, errors)

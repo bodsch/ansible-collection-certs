@@ -10,6 +10,11 @@
 # Platform support is keyed by package manager (apt / pacman) so Debian-based
 # distributions and Arch/Artix are both handled.
 
+
+- name: merge trust store configuration between defaults and custom
+  ansible.builtin.set_fact:
+    step_ca_trust_store: "{{ step_ca_defaults_trust_store | combine(step_ca_trust_store, recursive=True) }}"
+
 - name: trust store / resolve platform settings
   ansible.builtin.set_fact:
     _step_ca_trust_store: "{{ _step_ca_trust_store_platform[ansible_facts.pkg_mgr] | default({}) }}"

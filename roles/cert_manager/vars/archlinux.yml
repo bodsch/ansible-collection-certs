@@ -1,0 +1,8 @@
+---
+
+cert_manager_dependencies:
+  - python-yaml
+  - python-cryptography
+  - python-dnspython
+
+...

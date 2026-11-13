@@ -9,7 +9,4 @@
 - name: install
   ansible.builtin.include_tasks: install.yml
 
-- name: configure
-  ansible.builtin.include_tasks: configure/main.yml
-
 ...

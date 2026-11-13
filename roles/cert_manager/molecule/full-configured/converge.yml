@@ -1,0 +1,17 @@
+---
+
+- name: converge
+  hosts: instance
+  gather_facts: true
+  become: false
+  any_errors_fatal: true
+
+  pre_tasks:
+    - name: ensure that dbus service are running
+      ansible.builtin.service:
+        name: dbus
+        state: started
+
+  roles:
+    - role: bodsch.certs.cert_manager
+
